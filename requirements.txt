@@ -1,0 +1,9 @@
+disnake
+aiofiles
+aiohttp
+asyncpg
+python-dotenv
+Pillow
+imagehash
+scikit-image
+pytesseract
