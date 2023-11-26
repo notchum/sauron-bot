@@ -5,7 +5,6 @@ import aiohttp
 import aiofiles
 import pytesseract
 import imagehash
-import disnake
 from PIL import Image
 
 logger = logging.getLogger("sauron-bot")
@@ -14,7 +13,7 @@ class ImageProc:
     def __init__(self, session: aiohttp.ClientSession, cache_dir: str) -> None:
         self.session = session
         self.cache_dir = cache_dir
-        pytesseract.pytesseract.tesseract_cmd = r"D:\\opt\\Tesseract-OCR\\tesseract.exe" #TODO: Make this configurable
+        pytesseract.pytesseract.tesseract_cmd = os.environ["TESSERACT_CMD"]
 
     async def download_image(self, url: str) -> str | None:
         try:

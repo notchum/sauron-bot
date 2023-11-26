@@ -19,6 +19,7 @@ async def main():
         TEST_MODE=os.environ["TEST_MODE"] in ("1", "True", "true"),
         DISCORD_BOT_TOKEN=os.environ["DISCORD_BOT_TOKEN"],
         DATABASE_URI=os.environ["DATABASE_URI"],
+        TESSERACT_CMD=os.environ["TESSERACT_CMD"],
     )
 
     # Create logger

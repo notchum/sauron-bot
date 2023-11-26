@@ -22,6 +22,7 @@ Config = namedtuple(
         "TEST_MODE",
         "DISCORD_BOT_TOKEN",
         "DATABASE_URI",
+        "TESSERACT_CMD",
     ],
 )
 
