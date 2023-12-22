@@ -3,6 +3,8 @@ import os
 from disnake.ext import commands, tasks
 
 from bot import SauronBot
+from helpers import ImageProcessor, VideoProcessor
+from helpers.utilities import validate_attachment
 
 class Tasks(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -23,7 +25,7 @@ class Tasks(commands.Cog):
                 query = """
                     SELECT EXISTS (
                         SELECT 1
-                        FROM images
+                        FROM media_metadata
                         WHERE message_id = $1
                         AND channel_id = $2
                         AND guild_id = $3
@@ -39,10 +41,11 @@ class Tasks(commands.Cog):
                     continue
                 
                 for attachment in message.attachments:
-                    if attachment.content_type is None:
-                        if not attachment.filename.lower().endswith((".png", ".jpg", ".jpeg")):
-                            continue
-                    elif not attachment.content_type.startswith("image"):
+                    if not validate_attachment(attachment):
+                        continue
+
+                    # TODO remove when added support for videos
+                    if attachment.content_type.startswith("video"):
                         continue
                     
                     try:
@@ -55,8 +58,9 @@ class Tasks(commands.Cog):
                     if not image_path:
                         continue
                     
-                    text = self.bot.imageproc.ocr_core(image_path)
-                    hash = self.bot.imageproc.create_image_hash(image_path)
+                    imageproc = ImageProcessor(image_path)
+                    text = imageproc.ocr()
+                    hash = imageproc.hash
 
                     query = """
                         INSERT INTO images (hash, text, timestamp, guild_id, channel_id, message_id, author_id)

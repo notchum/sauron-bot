@@ -10,8 +10,6 @@ import disnake
 from disnake import Activity, ActivityType
 from disnake.ext import commands
 
-from helpers import ImageProc
-
 VERSION = "0.0.0"
 
 Config = namedtuple(
@@ -32,7 +30,7 @@ class SauronBot(commands.InteractionBot):
         self.logger: logging.Logger = kwargs.pop("logger", None)
         super().__init__(*args, **kwargs)
         self.activity = Activity(type=ActivityType.watching, name="you")
-        self.monitored_channels = [788962609235886090, 759521817735725126]
+        self.monitored_channels = [1187156262627053608]
     
     async def setup_hook(self):
         # Load cogs
@@ -56,9 +54,6 @@ class SauronBot(commands.InteractionBot):
 
         # Initialize aiohttp session
         self.session = aiohttp.ClientSession()
-
-        # Initialize image processing
-        self.imageproc = ImageProc(self.session, self.cache_dir)
 
     async def on_ready(self):
         self.logger.info("------")

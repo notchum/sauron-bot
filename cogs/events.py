@@ -4,6 +4,8 @@ import disnake
 from disnake.ext import commands
 
 from bot import SauronBot
+from helpers import ImageProcessor, VideoProcessor
+from helpers.utilities import validate_attachment
 
 class Events(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -18,68 +20,87 @@ class Events(commands.Cog):
             return
         if not message.attachments:
             return
+        
+        add_reaction = False
+
+        # Process each attachment
         for attachment in message.attachments:
-            if attachment.content_type is None:
-                if not attachment.filename.lower().endswith((".png", ".jpg", ".jpeg")):
-                    continue
-            elif not attachment.content_type.startswith("image"):
-                continue    
+            # Validate the attachment
+            if not validate_attachment(attachment):
+                continue
             
+            # Save the attachment to the cache directory
             try:
-                image_path = os.path.join(self.bot.cache_dir, attachment.filename)
-                await attachment.save(fp=image_path, use_cached=True)
+                file_path = os.path.join(self.bot.cache_dir, attachment.filename)
+                await attachment.save(fp=file_path, use_cached=True)
             except:
                 self.bot.logger.exception(f"Failed to save attachment {attachment.filename} from message {message.id}")
                 continue
 
-            if not image_path:
+            # Process the image or video
+            if attachment.content_type.startswith("image"):
+                self.bot.logger.info(f"Message {message.id}: Processing image {attachment.filename}")
+                imageproc = ImageProcessor(file_path)
+                text_ocr = imageproc.ocr()
+                text_tsb = None
+                hash = imageproc.hash
+            elif attachment.content_type.startswith("video"):
+                self.bot.logger.info(f"Message {message.id}: Processing video {attachment.filename}")
+                videoproc = VideoProcessor(file_path)
+                text_ocr = None
+                text_tsb = videoproc.transcribe(cache_dir=self.bot.cache_dir)
+                hash = videoproc.hash
+            else:
+                self.bot.logger.error(f"Message {message.id}: Attachment {attachment.filename} has invalid content type {attachment.content_type}")
                 continue
-            
-            # Extract text and hash from image
-            text = self.bot.imageproc.ocr_core(image_path)
-            hash = self.bot.imageproc.create_image_hash(image_path)
 
-            # Find similar images in the database
-            if "repost" not in message.clean_content.lower():
-                query = """
-                    SELECT *
-                    FROM images
-                    WHERE hash <@ ($1, $2)
-                    AND guild_id = $3;
-                """
-                max_hamming_distance = 0
-                matches = await self.bot.execute_query(query, hash, max_hamming_distance, message.guild.id)
-                self.bot.logger.info(f"Message {message.id}: Found {len(matches)} exact images.")
-                self.bot.logger.debug(f"Exact images: {matches}")
-
-                # Send a message to the channel with links to the image matches
-                if matches:
-                    message_urls = []
-                    for i, match in enumerate(matches, 1):
-                        user_mention = f"<@{match['author_id']}>"
-                        time_sent = f"<t:{int(match['timestamp'].timestamp())}:F>"
-                        jump_url = f"https://discord.com/channels/{match['guild_id']}/{match['channel_id']}/{match['message_id']}"
-                        message_urls.append(f"{i}. By {user_mention} on {time_sent} in {jump_url}")
-                    message_urls = "\n".join(message_urls)
-
-                    embed = disnake.Embed(
-                        title=f"Repost Detected!",
-                        description=f"This image has been posted `{len(matches)}` time(s) before.\n{message_urls}",
-                        color=disnake.Color.dark_orange(),
-                    ).set_thumbnail(url=attachment.url)
-                    await message.reply(embed=embed)
-
-            # Insert this image info into the database
+            # Find exact matches in the database
             query = """
-                INSERT INTO images (hash, text, guild_id, channel_id, message_id, author_id)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                SELECT *
+                FROM media_metadata
+                WHERE hash <@ ($1, $2)
+                AND guild_id = $3;
+            """
+            max_hamming_distance = 0
+            matches = await self.bot.execute_query(query, hash, max_hamming_distance, message.guild.id)
+            if matches:
+                add_reaction = True
+            self.bot.logger.info(f"Message {message.id}: Found {len(matches)} exact matches.")
+            self.bot.logger.debug(f"Exact matches: {matches}")
+
+            # Insert into the database
+            query = """
+                INSERT INTO media_metadata (hash, text_ocr, text_tsb, content_type, filename, guild_id, channel_id, message_id, author_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 RETURNING *;
             """
-            result = await self.bot.execute_query(query, hash, text, message.guild.id, message.channel.id, message.id, message.author.id)
+            result = await self.bot.execute_query(query, hash, text_ocr, text_tsb, attachment.content_type, attachment.filename, message.guild.id, message.channel.id, message.id, message.author.id)
             for record in result:
-                self.bot.logger.info(f"Message {message.id}: Inserted image {record['id']} into database.")
+                self.bot.logger.info(f"Message {message.id}: Inserted media {record['id']} into database.")
                 self.bot.logger.info(f"                      Hash: {hash}")
-                self.bot.logger.info(f"                      Text: {repr(text)}")
+                self.bot.logger.info(f"                      OCR Text: {repr(text_ocr)}")
+                self.bot.logger.info(f"                      TSB Text: {repr(text_tsb)}")
+        
+        # Add a reaction to the message if a repost was detected
+        if add_reaction:
+            for emoji in ["🇷", "🇪", "🇵", "🇴", "🇸", "🇹"]:
+                message.add_reaction(emoji)
+            
+            # TODO add toggle for sending reply message
+            # message_urls = []
+            # for i, match in enumerate(matches, 1):
+            #     user_mention = f"<@{match['author_id']}>"
+            #     time_sent = f"<t:{int(match['timestamp'].timestamp())}:F>"
+            #     jump_url = f"https://discord.com/channels/{match['guild_id']}/{match['channel_id']}/{match['message_id']}"
+            #     message_urls.append(f"{i}. By {user_mention} on {time_sent} in {jump_url}")
+            # message_urls = "\n".join(message_urls)
+
+            # embed = disnake.Embed(
+            #     title=f"Repost Detected!",
+            #     description=f"This image has been posted `{len(matches)}` time(s) before.\n{message_urls}",
+            #     color=disnake.Color.dark_orange(),
+            # ).set_thumbnail(url=attachment.url)
+            # await message.reply(embed=embed)
 
     @commands.Cog.listener()
     async def on_message_edit(self, before: disnake.Message, after: disnake.Message):

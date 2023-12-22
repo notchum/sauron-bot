@@ -6,3 +6,10 @@ python-dotenv
 Pillow
 imagehash
 pytesseract
+numpy
+autocorrect
+fuzzywuzzy
+levenshtein
+opencv-contrib-python-headless
+videohash @ git+https://github.com/albertopasqualetto/videohash.git@pillow10
+imagedominantcolor @ git+https://github.com/albertopasqualetto/imagedominantcolor.git@pillow10
