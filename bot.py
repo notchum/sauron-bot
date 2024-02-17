@@ -30,7 +30,7 @@ class SauronBot(commands.InteractionBot):
         self.logger: logging.Logger = kwargs.pop("logger", None)
         super().__init__(*args, **kwargs)
         self.activity = Activity(type=ActivityType.watching, name="you")
-        self.monitored_channels = [1187156262627053608]
+        self.monitored_channels = [788962609235886090, 759521817735725126]
     
     async def setup_hook(self):
         # Load cogs

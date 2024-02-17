@@ -5,7 +5,8 @@ import disnake
 from disnake.ext import commands
 
 from bot import SauronBot
-from helpers import VideoProcessor
+from helpers import ImageProcessor, VideoProcessor
+from helpers.utilities import validate_attachment, get_content_type, ContentType
 
 class Commands(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -108,7 +109,8 @@ class Commands(commands.Cog):
         image_path = os.path.join(self.bot.cache_dir, image.filename)
         await image.save(fp=image_path, use_cached=True)
         
-        hash = self.bot.imageproc.create_image_hash(image_path)
+        imageproc = ImageProcessor(image_path)
+        hash = imageproc.hash
 
         query = """
             SELECT *
@@ -151,7 +153,8 @@ class Commands(commands.Cog):
         
         image_path = await self.download_image(image_url)
 
-        hash = self.bot.imageproc.create_image_hash(image_path)
+        imageproc = ImageProcessor(image_path)
+        hash = imageproc.hash
 
         query = """
             SELECT *
@@ -205,7 +208,8 @@ class Commands(commands.Cog):
             image_path = os.path.join(self.bot.cache_dir, attachment.filename)
             await attachment.save(fp=image_path, use_cached=True)
             
-            hash = self.bot.imageproc.create_image_hash(image_path)
+            imageproc = ImageProcessor(image_path)
+            hash = imageproc.hash
 
             query = """
                 SELECT *
@@ -276,61 +280,121 @@ class Commands(commands.Cog):
         return
 
     @commands.slash_command(default_member_permissions=disnake.Permissions(administrator=True))
-    async def test(
+    async def delete_record(
         self,
-        inter: disnake.ApplicationCommandInteraction
+        inter: disnake.ApplicationCommandInteraction,
+        message: disnake.Message
     ):
-        """ Test command. """
+        """ Delete a record from the database. """
         await inter.response.defer(ephemeral=True)
-        
-        for channel_id in self.bot.monitored_channels:
-            channel = self.bot.get_channel(channel_id)
-            if not channel:
+
+        query = """
+            DELETE FROM media_metadata
+            WHERE message_id = $1
+            AND channel_id = $2
+            AND guild_id = $3;
+        """
+        await self.bot.execute_query(query, message.id, message.channel.id, message.guild.id)
+
+        await inter.edit_original_response("Record deleted.")
+
+    @commands.slash_command(default_member_permissions=disnake.Permissions(administrator=True))
+    async def execute_full_scrub(
+        self,
+        inter: disnake.ApplicationCommandInteraction,
+        channel: disnake.TextChannel,
+        limit: int = None,
+        oldest_first: bool = True
+    ):
+        """ Execute a full scrub of all monitored channels. """
+        await inter.response.defer(ephemeral=True)
+
+        if channel.id not in self.bot.monitored_channels:
+            await inter.edit_original_response("Channel is not monitored.")
+            return
+
+        async for message in channel.history(limit=limit, oldest_first=oldest_first):
+            if not message.attachments:
                 continue
+            
+            # Process each attachment
+            for attachment in message.attachments:
+                # Validate the attachment
+                if not validate_attachment(attachment):
+                    continue
+                
+                # Check if the message already exists in the database
+                query = """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM media_metadata
+                        WHERE message_id = $1
+                        AND channel_id = $2
+                        AND guild_id = $3
+                    );
+                """
+                exists = await self.bot.execute_query(query, message.id, message.channel.id, message.guild.id)
+                if exists[0][0]:
+                    # Update the content type and filename in the database
+                    query = """
+                        UPDATE media_metadata
+                        SET content_type = $1, filename = $2
+                        WHERE message_id = $3
+                        AND channel_id = $4
+                        AND guild_id = $5;
+                    """
+                    await self.bot.execute_query(query, attachment.content_type, attachment.filename, message.id, channel.id, message.guild.id)
+                    self.bot.logger.info(f"Message {message.id}: Updated content type and filename in database.")
+                    continue
 
-            async for message in channel.history(limit=None, oldest_first=True):
-                if message.attachments:
-                    attachment = message.attachments[0]
-                    if attachment.content_type == 'image/gif':
-                        query = """
-                            DELETE FROM media_metadata
-                            WHERE message_id = $1
-                            AND channel_id = $2
-                            AND guild_id = $3;
-                        """
-                        await self.bot.execute_query(query, message.id, channel.id, message.guild.id)
-                    else:
-                        query = """
-                            UPDATE media_metadata
-                            SET content_type = $1, filename = $2
-                            WHERE message_id = $3
-                            AND channel_id = $4
-                            AND guild_id = $5;
-                        """
-                        await self.bot.execute_query(query, attachment.content_type, attachment.filename, message.id, channel.id, message.guild.id)
+                # Save the attachment to the cache directory
+                try:
+                    file_path = os.path.join(self.bot.cache_dir, attachment.filename)
+                    await attachment.save(fp=file_path, use_cached=True)
+                except:
+                    self.bot.logger.exception(f"Failed to save attachment {attachment.filename} from message {message.id}")
+                    continue
 
-                    if attachment.content_type.startswith('video/'):
-                        # Save the attachment to the cache directory
-                        try:
-                            file_path = os.path.join(self.bot.cache_dir, attachment.filename)
-                            await attachment.save(fp=file_path, use_cached=True)
-                        except:
-                            self.bot.logger.exception(f"Failed to save attachment {attachment.filename} from message {message.id}")
-                            continue
-                        
-                        # Process the video
+                # Get the content type
+                content_type = get_content_type(attachment)
+                if content_type is None:
+                    self.bot.logger.error(f"Message {message.id}: Attachment {attachment.filename} has invalid content type {attachment.content_type}")
+                    continue
+
+                # Process the image or video
+                if content_type == ContentType.IMAGE:
+                    self.bot.logger.info(f"Message {message.id}: Processing image {attachment.filename}")
+                    imageproc = ImageProcessor(file_path)
+                    text_ocr = imageproc.ocr()
+                    video_transcription = None
+                    hash = imageproc.hash
+                elif content_type == ContentType.VIDEO:
+                    self.bot.logger.info(f"Message {message.id}: Processing video {attachment.filename}")
+                    try:
                         videoproc = VideoProcessor(file_path)
-                        text_tsb = videoproc.transcribe(cache_dir=self.bot.cache_dir)
-                        text_ocr = None
-                        hash = videoproc.hash
-                        
-                        query = """
-                            INSERT INTO media_metadata (hash, text_ocr, text_tsb, content_type, filename, guild_id, channel_id, message_id, author_id)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
-                        """
-                        await self.bot.execute_query(query, hash, text_ocr, text_tsb, attachment.content_type, attachment.filename, message.guild.id, message.channel.id, message.id, message.author.id)
+                    except:
+                        self.bot.logger.exception(f"Failed to process video {attachment.filename}")
+                        continue
+                    text_ocr = None # TODO: Implement OCR for video
+                    video_transcription = videoproc.transcribe(cache_dir=self.bot.cache_dir)
+                    hash = videoproc.hash
+                else:
+                    self.bot.logger.error(f"Message {message.id}: Attachment {attachment.filename} has invalid content type {attachment.content_type}")
+                    continue
 
-        await inter.edit_original_response("Test command successful.")
+                # Insert into the database
+                query = """
+                    INSERT INTO media_metadata (hash, text_ocr, video_transcription, content_type, filename, guild_id, channel_id, message_id, author_id)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+                """
+                result = await self.bot.execute_query(query, hash, text_ocr, video_transcription, attachment.content_type, attachment.filename, message.guild.id, message.channel.id, message.id, message.author.id)
+                for record in result:
+                    self.bot.logger.info(f"Message {message.id}: Inserted media {record['id']} into database.")
+                    self.bot.logger.info(f"                      Hash: {hash}")
+                    self.bot.logger.info(f"                      OCR Text: {repr(text_ocr)}")
+                    self.bot.logger.info(f"                      Transcription: {repr(video_transcription)}")
+
+        await inter.edit_original_response("Full scrub executed. All images and videos have been reprocessed.")
 
 def setup(bot: commands.Bot):
     bot.add_cog(Commands(bot))

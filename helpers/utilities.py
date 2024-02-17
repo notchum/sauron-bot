@@ -1,5 +1,6 @@
 import os
 import logging
+from enum import Enum
 
 import disnake
 import autocorrect
@@ -7,6 +8,10 @@ import pytesseract
 
 pytesseract.pytesseract.tesseract_cmd = os.environ["TESSERACT_CMD"]
 logger = logging.getLogger("sauron-bot")
+
+class ContentType(Enum):
+    IMAGE = "image"
+    VIDEO = "video"
 
 def twos_complement(hexstr: str, bits: int):
     value = int(hexstr, 16) # convert hexadecimal to integer
@@ -39,3 +44,15 @@ def validate_attachment(attachment: disnake.Attachment) -> bool:
     if not attachment.filename.lower().endswith((".png", ".PNG", ".jpg", ".jpeg", ".JPG", ".JPEG", ".mp4", ".webm")):
         return False
     return True
+
+def get_content_type(attachment: disnake.Attachment) -> ContentType:
+    if attachment.content_type is None:
+        if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg")):
+            return ContentType.IMAGE
+        elif attachment.filename.lower().endswith((".mp4", ".webm", ".mov")):
+            return ContentType.VIDEO
+    elif attachment.content_type.startswith("image"):
+        return ContentType.IMAGE
+    elif attachment.content_type.startswith("video"):
+        return ContentType.VIDEO
+    return None

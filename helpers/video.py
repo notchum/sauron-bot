@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 import subprocess
 
@@ -7,6 +8,7 @@ import whisper
 import Levenshtein
 import pytesseract
 import numpy as np
+from tqdm import tqdm
 from videohash import VideoHash
 
 from helpers.utilities import twos_complement, text_post_processing
@@ -149,12 +151,30 @@ class VideoProcessor:
         return full_text
 
     def transcribe(self, cache_dir: str) -> str:
-        audio_path = os.path.join(cache_dir, self.path.split("\\")[-1].split(".")[0] + ".wav")
-        command = f"ffmpeg -i {self.path} -ab 160k -ac 2 -ar 44100 -vn {audio_path}"
-        subprocess.call(command, shell=True)
+        audio_path = os.path.join(cache_dir, "".join(i for i in self.path.split("\\")[-1].split(".")[0:-1]) + ".wav")
+        cmd = f"ffmpeg -y -i {self.path} -ab 160k -ac 2 -ar 44100 -vn {audio_path}"
+        process = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True)
 
-        model: whisper.Whisper = whisper.load_model("base")
-        result = model.transcribe(audio_path)
+        progress_bar = None
+        for line in process.stderr:
+            if "Duration" in line:
+                duration = re.search(r"Duration: (.*?),", line).group(1)
+                h, m, s = map(float, duration.split(':'))
+                total_seconds = h*3600 + m*60 + s
+                progress_bar = tqdm(total=total_seconds, ncols=80, bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}')
+
+            if progress_bar and 'time=' in line:
+                time = re.search(r"time=(.*?)[.]", line).group(1)
+                h, m, s = map(float, time.split(':'))
+                elapsed_seconds = h*3600 + m*60 + s
+                progress_bar.n = elapsed_seconds
+                progress_bar.refresh()
+
+        if os.path.exists(audio_path):
+            model: whisper.Whisper = whisper.load_model("base")
+            result = model.transcribe(audio_path, verbose=True)
+        else:
+            result = {"text": ""}
         return result["text"]
     
     def check_hash_similarity(self, hash1: VideoHash, hash2: VideoHash, threshold: int = 10):
