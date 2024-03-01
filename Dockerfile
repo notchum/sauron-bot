@@ -1,5 +1,5 @@
 FROM python:3.10.4
-RUN apt-get -y update && apt-get -y install tesseract-ocr
+RUN apt-get -y update && apt-get -y install tesseract-ocr ffmpeg
 RUN mkdir -p /opt/sauron-bot
 WORKDIR /opt/sauron-bot
 COPY ./ /opt/sauron-bot
