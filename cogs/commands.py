@@ -7,7 +7,7 @@ from disnake.ext import commands
 from bot import SauronBot
 from views import Paginator
 from helpers import ImageProcessor, VideoProcessor
-from helpers.utilities import validate_attachment, get_content_type, ContentType
+from helpers.utilities import get_content_type, is_image_content_type, is_video_content_type
 
 class Commands(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -16,7 +16,7 @@ class Commands(commands.Cog):
     async def download_media(self, url: str) -> str | None:
         try:
             media_filename = os.path.basename(url).split("?")[0]
-            media_path = os.path.join(self.bot.cache_dir, media_filename)
+            media_path = os.path.join(self.bot.temp_dir, media_filename)
 
             if not os.path.exists(media_path):
                 async with self.bot.session.get(url) as response:
@@ -31,7 +31,7 @@ class Commands(commands.Cog):
             return None
 
     async def get_attachment_hash(self, attachment: disnake.Attachment) -> int:
-        file_path = os.path.join(self.bot.cache_dir, attachment.filename)
+        file_path = os.path.join(self.bot.temp_dir, attachment.filename)
         await attachment.save(fp=file_path, use_cached=True)
 
         content_type = get_content_type(attachment)
@@ -39,12 +39,12 @@ class Commands(commands.Cog):
             raise ValueError(f"Attachment {attachment.filename} has invalid content type {attachment.content_type}")
 
         # Process the image or video
-        if content_type == ContentType.IMAGE:
+        if is_image_content_type(content_type):
             imageproc = ImageProcessor(file_path)
             hash = imageproc.hash
-        elif content_type == ContentType.VIDEO:
+        elif is_video_content_type(content_type):
             try:
-                videoproc = VideoProcessor(file_path)
+                videoproc = VideoProcessor(file_path, self.bot.temp_dir)
             except:
                 raise ValueError(f"Failed to process video {attachment.filename}")
             hash = videoproc.hash
@@ -63,7 +63,7 @@ class Commands(commands.Cog):
         matches = await self.bot.execute_query(query, hash, max_hamming_distance, guild_id)
         return matches
 
-    async def send_search_results(self, inter: disnake.ApplicationCommandInteraction, matches: list[dict[str, str]], title: str, image_url: str = None):
+    async def send_search_results(self, inter: disnake.ApplicationCommandInteraction, matches: list[dict[str, str]], content: str = "", image_url: str = None):
         if not matches:
             await inter.edit_original_response("No similar images or videos found.")
             return
@@ -74,14 +74,15 @@ class Commands(commands.Cog):
         message_urls = []
         for i, match in enumerate(matches, 1):
             user_mention = f"<@{match['author_id']}>"
-            #TODO add 'via bot' if the message was sent by the bot
+            if match["by_bot"]:
+                user_mention += f" via <@{match['bot_id']}>"
             time_sent = f"<t:{int(match['timestamp'].timestamp())}:F>"
             jump_url = f"https://discord.com/channels/{match['guild_id']}/{match['channel_id']}/{match['message_id']}"
             
-            message_urls.append(f"{i}. {jump_url} ({time_sent})\n  - Author: {user_mention}")
+            message_urls.append(f"{i}. {jump_url} ({time_sent})\n  - Author: {user_mention}\n  - ID: {match['id']}")
             if i % 10 == 0:
                 embed = disnake.Embed(
-                    title=title,
+                    title="Search Results",
                     description="\n".join(message_urls),
                     color=disnake.Color.dark_orange(),
                 )
@@ -91,7 +92,7 @@ class Commands(commands.Cog):
                 message_urls = []
         if message_urls:
             embed = disnake.Embed(
-                title=title,
+                title="Search Results",
                 description="\n".join(message_urls),
                 color=disnake.Color.dark_orange(),
             )
@@ -100,7 +101,7 @@ class Commands(commands.Cog):
             embeds.append(embed)
         
         paginator_view = Paginator(embeds, inter.author)
-        message = await inter.edit_original_response(content=f"Found `{len(matches)}` results.", embed=embeds[0], view=paginator_view)
+        message = await inter.edit_original_response(content=f"Found `{len(matches)}` results. {content}", embed=embeds[0], view=paginator_view)
         paginator_view.message = message
         return
 
@@ -150,7 +151,7 @@ class Commands(commands.Cog):
                 matches.append(match)
         self.bot.logger.info(f"Found {len(matches)} similar images.")
 
-        await self.send_search_results(inter, matches, "Search Results")
+        await self.send_search_results(inter, matches, content=f"Query:\n> {text}")
     
     @commands.slash_command()
     async def search_attachment(
@@ -170,45 +171,28 @@ class Commands(commands.Cog):
         """
         await inter.response.defer()
 
-        file_path = os.path.join(self.bot.cache_dir, attachment.filename)
+        file_path = os.path.join(self.bot.temp_dir, attachment.filename)
         await attachment.save(fp=file_path, use_cached=True)
+        self.bot.logger.info(f"Saved attachment {attachment.filename} to {file_path}")
 
         hash = await self.get_attachment_hash(attachment)
+        self.bot.logger.info(f"Hash: {hash}")
 
-        query = """
-            SELECT *
-            FROM media_metadata
-            WHERE hash <@ ($1, $2)
-            AND guild_id = $3;
-        """
-        matches = await self.bot.execute_query(query, hash, max_hamming_distance, inter.guild.id)
+        matches = await self.find_similar_images(hash, max_hamming_distance, inter.guild.id)
         self.bot.logger.info(f"Found {len(matches)} similar images.")
 
         if not matches:
             await inter.edit_original_response("No similar images found.")
             return
 
-        message_urls = []
-        for i, match in enumerate(matches, 1):
-            user_mention = f"<@{match['author_id']}>"
-            time_sent = f"<t:{int(match['timestamp'].timestamp())}:F>"
-            jump_url = f"https://discord.com/channels/{match['guild_id']}/{match['channel_id']}/{match['message_id']}"
-            message_urls.append(f"{i}. By {user_mention} on {time_sent} in {jump_url}")
-        message_urls = "\n".join(message_urls)
-        
-        embed = disnake.Embed(
-            title=f"Search Results",
-            description=f"Found `{len(matches)}` similar images.\n{message_urls}",
-            color=disnake.Color.dark_orange(),
-        ).set_thumbnail(url=image.url)
-        await inter.edit_original_response(embed=embed)
+        await self.send_search_results(inter, matches, image_url=attachment.url)
         return
     
     @commands.slash_command()
     async def search_url(
         self,
         inter: disnake.ApplicationCommandInteraction,
-        image_url: str,
+        media_url: str,
         max_hamming_distance: int = 0
     ):
         """ Search for an image or video with a URL to an image or video.
@@ -222,11 +206,11 @@ class Commands(commands.Cog):
         """
         await inter.response.defer()
         
-        image_path = await self.download_media(image_url)
-        self.bot.logger.info(f"Downloaded image {image_path}")
+        file_path = await self.download_media(media_url)
+        self.bot.logger.info(f"Downloaded image {file_path}")
 
         image_host_channel = await self.bot.fetch_channel(1164613880538992760)
-        image_host_msg = await image_host_channel.send(file=disnake.File(image_path))
+        image_host_msg = await image_host_channel.send(file=disnake.File(file_path))
         attachment = image_host_msg.attachments[0]
         self.bot.logger.info(f"Uploaded image {image_host_msg.attachments[0].url}")
 
@@ -236,7 +220,7 @@ class Commands(commands.Cog):
         matches = await self.find_similar_images(hash, max_hamming_distance, inter.guild.id)
         self.bot.logger.info(f"Found {len(matches)} similar images.")
 
-        await self.send_search_results(inter, matches, "Search Results", attachment.url)
+        await self.send_search_results(inter, matches, image_url=attachment.url)
         return
 
     @commands.slash_command()
@@ -262,9 +246,9 @@ class Commands(commands.Cog):
             return
         attachment = message.attachments[0] #TODO: Add support for multiple attachments
             
-        image_path = os.path.join(self.bot.cache_dir, attachment.filename)
-        await attachment.save(fp=image_path, use_cached=True)
-        self.bot.logger.info(f"Saved attachment {attachment.filename} from message {message.id} to {image_path}")
+        file_path = os.path.join(self.bot.temp_dir, attachment.filename)
+        await attachment.save(fp=file_path, use_cached=True)
+        self.bot.logger.info(f"Saved attachment {attachment.filename} from message {message.id} to {file_path}")
         
         hash = await self.get_attachment_hash(attachment)
         self.bot.logger.info(f"Hash: {hash}")
@@ -272,7 +256,7 @@ class Commands(commands.Cog):
         matches = await self.find_similar_images(hash, max_hamming_distance, inter.guild.id)
         self.bot.logger.info(f"Found {len(matches)} similar images.")
 
-        await self.send_search_results(inter, matches, "Search Results", attachment.url)
+        await self.send_search_results(inter, matches, image_url=attachment.url)
         return
 
     @commands.slash_command(default_member_permissions=disnake.Permissions(administrator=True))
@@ -334,102 +318,60 @@ class Commands(commands.Cog):
         await inter.edit_original_response("Record deleted.")
 
     @commands.slash_command(default_member_permissions=disnake.Permissions(administrator=True))
+    async def clear_cache(
+        self,
+        inter: disnake.ApplicationCommandInteraction,
+    ):
+        """ Clear the files from the bot's temporary directory. """
+        await inter.response.defer()
+        self.bot.clear_temp_dir()
+        await inter.edit_original_response("Cleared temporary directory.")
+
+    @commands.slash_command(default_member_permissions=disnake.Permissions(administrator=True))
     async def execute_full_scrub(
         self,
         inter: disnake.ApplicationCommandInteraction,
         channel: disnake.TextChannel,
         limit: int = None,
-        oldest_first: bool = True
+        oldest_first: bool = True,
+        update_existing: bool = False,
+        starting_message: disnake.Message = None
     ):
         """ Execute a full scrub of all monitored channels. """
-        await inter.response.defer(ephemeral=True)
+        await inter.response.defer()
 
         if channel.id not in self.bot.monitored_channels:
             await inter.edit_original_response("Channel is not monitored.")
             return
+        if starting_message.channel != channel:
+            await inter.edit_original_response("Starting message is not within the selected channel.")
+            return
 
+        original_message = await inter.edit_original_response(f"Scrubbing {channel.mention}...")
+        
+        starting_message_found = False
+        message_count = 1
         async for message in channel.history(limit=limit, oldest_first=oldest_first):
+            if starting_message and not starting_message_found:
+                if message.id >= starting_message.id:
+                    starting_message_found = True
+                else:
+                    continue            
             if not message.attachments:
                 continue
+
+            if message_count % 100 == 0:
+                original_message = await original_message.channel.fetch_message(original_message.id)
+                await original_message.edit(f"Scrubbed {message_count} messages. Clearing cache...")
+                self.bot.clear_temp_dir()
             
-            # Process each attachment
-            for attachment in message.attachments:
-                # Validate the attachment
-                if not validate_attachment(attachment):
-                    continue
-                
-                # Check if the message already exists in the database
-                query = """
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM media_metadata
-                        WHERE message_id = $1
-                        AND channel_id = $2
-                        AND guild_id = $3
-                    );
-                """
-                exists = await self.bot.execute_query(query, message.id, message.channel.id, message.guild.id)
-                if exists[0][0]:
-                    # Update the content type and filename in the database
-                    query = """
-                        UPDATE media_metadata
-                        SET content_type = $1, filename = $2, timestamp = $3
-                        WHERE message_id = $4
-                        AND channel_id = $5
-                        AND guild_id = $6;
-                    """
-                    await self.bot.execute_query(query, attachment.content_type, attachment.filename, message.created_at, message.id, channel.id, message.guild.id)
-                    self.bot.logger.info(f"Message {message.id}: Updated content type and filename in database.")
-                    continue
-
-                # Save the attachment to the cache directory
-                try:
-                    file_path = os.path.join(self.bot.cache_dir, attachment.filename)
-                    await attachment.save(fp=file_path, use_cached=True)
-                except:
-                    self.bot.logger.exception(f"Failed to save attachment {attachment.filename} from message {message.id}")
-                    continue
-
-                # Get the content type
-                content_type = get_content_type(attachment)
-                if content_type is None:
-                    self.bot.logger.error(f"Message {message.id}: Attachment {attachment.filename} has invalid content type {attachment.content_type}")
-                    continue
-
-                # Process the image or video
-                if content_type == ContentType.IMAGE:
-                    self.bot.logger.info(f"Message {message.id}: Processing image {attachment.filename}")
-                    imageproc = ImageProcessor(file_path)
-                    text_ocr = imageproc.ocr()
-                    video_transcription = None
-                    hash = imageproc.hash
-                elif content_type == ContentType.VIDEO:
-                    self.bot.logger.info(f"Message {message.id}: Processing video {attachment.filename}")
-                    try:
-                        videoproc = VideoProcessor(file_path)
-                    except:
-                        self.bot.logger.exception(f"Failed to process video {attachment.filename}")
-                        continue
-                    text_ocr = None # TODO: Implement OCR for video
-                    video_transcription = videoproc.transcribe(cache_dir=self.bot.cache_dir)
-                    hash = videoproc.hash
-                else:
-                    self.bot.logger.error(f"Message {message.id}: Attachment {attachment.filename} has invalid content type {attachment.content_type}")
-                    continue
-
-                # Insert into the database
-                query = """
-                    INSERT INTO media_metadata (hash, text_ocr, video_transcription, content_type, filename, guild_id, channel_id, message_id, author_id)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
-                """
-                result = await self.bot.execute_query(query, hash, text_ocr, video_transcription, attachment.content_type, attachment.filename, message.guild.id, message.channel.id, message.id, message.author.id)
-                for record in result:
-                    self.bot.logger.info(f"Message {message.id}: Inserted media {record['id']} into database.")
-                    self.bot.logger.info(f"                      Hash: {hash}")
-                    self.bot.logger.info(f"                      OCR Text: {repr(text_ocr)}")
-                    self.bot.logger.info(f"                      Transcription: {repr(video_transcription)}")
-
-        await inter.edit_original_response("Full scrub executed. All images and videos have been reprocessed.")
+            for attachment_index in range(len(message.attachments)):
+                await self.bot.insert_media_record(message, attachment_index, update_existing=update_existing)
+            
+            message_count += 1
+        
+        original_message = await original_message.channel.fetch_message(original_message.id)
+        await original_message.edit(f"Finished scrubbing {message_count} messages.")
 
 def setup(bot: commands.Bot):
     bot.add_cog(Commands(bot))

@@ -26,11 +26,15 @@ cursor.execute("""
         video_transcription_vector TSVECTOR,    -- Video_transcription column converted to tsvector for full-text search
         content_type TEXT,                      -- Type of media content (e.g., image, video)
         filename TEXT,                          -- Name of the file
+        attachment_index INTEGER,               -- Index of the attachment in the message
+        url TEXT,                               -- URL of the media
         timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,  -- Timestamp of when the record was created
         guild_id BIGINT,                        -- Identifier for the guild (server) where the media was found
         channel_id BIGINT,                      -- Identifier for the channel where the media was found
         message_id BIGINT,                      -- Identifier for the message where the media was found
-        author_id BIGINT                        -- Identifier for the author of the message where the media was found
+        author_id BIGINT,                       -- Identifier for the author of the message where the media was found
+        by_bot BOOLEAN,                         -- Whether the media was posted by a bot (TRUE) or not (FALSE)
+        bot_id BIGINT                           -- Identifier for the bot responsible for posting the media, if applicable
     );
 """)
 

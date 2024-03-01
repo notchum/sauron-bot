@@ -9,22 +9,28 @@ import Levenshtein
 import pytesseract
 import numpy as np
 from tqdm import tqdm
-from videohash import VideoHash
+from videohash import VideoHash, HashAlgorithm
 
 from helpers.utilities import twos_complement, text_post_processing
 
 logger = logging.getLogger("sauron-bot")
 
 class VideoProcessor:
-    def __init__(self, filename: str) -> None:
+    def __init__(self, filename: str, storage_path: str) -> None:
         self.path = filename
+        self.storage_path = storage_path
         self.video = cv2.VideoCapture(filename)
 
         if not self.video.isOpened():
             logger.error("Could not open video file")
             raise FileNotFoundError
         
-        self.hash = twos_complement(VideoHash(path=filename).hash_hex, 64)
+        vhash = VideoHash(
+            path=filename,
+            storage_path=storage_path,
+            hash_algorithm=HashAlgorithm.PHASH
+        )
+        self.hash = twos_complement(vhash.hash_hex, 64)
 
     def __del__(self) -> None:
         self.video.release()
@@ -150,8 +156,8 @@ class VideoProcessor:
         print(frames_text)
         return full_text
 
-    def transcribe(self, cache_dir: str) -> str:
-        audio_path = os.path.join(cache_dir, "".join(i for i in self.path.split("\\")[-1].split(".")[0:-1]) + ".wav")
+    def transcribe(self) -> str:
+        audio_path = os.path.join(self.storage_path, "".join(i for i in self.path.split("\\")[-1].split(".")[0:-1]) + ".wav")
         cmd = f"ffmpeg -y -i {self.path} -ab 160k -ac 2 -ar 44100 -vn {audio_path}"
         process = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True)
 
@@ -172,7 +178,7 @@ class VideoProcessor:
 
         if os.path.exists(audio_path):
             model: whisper.Whisper = whisper.load_model("base")
-            result = model.transcribe(audio_path, verbose=True)
+            result = model.transcribe(audio_path)
         else:
             result = {"text": ""}
         return result["text"]

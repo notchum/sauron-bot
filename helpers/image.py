@@ -19,7 +19,7 @@ class ImageProcessor:
 
     def ocr(self) -> str:
         text = pytesseract.image_to_string(self.image)
-        text = text_post_processing(text)
+        # text = text_post_processing(text)
         return text
         
     def check_hash_similarity(self, hash1: imagehash.ImageHash, hash2: imagehash.ImageHash, threshold: int = 10):

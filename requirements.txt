@@ -9,8 +9,9 @@ pytesseract
 numpy
 tqdm
 autocorrect
+openai-whisper
 fuzzywuzzy
 levenshtein
 opencv-contrib-python-headless
-videohash @ git+https://github.com/albertopasqualetto/videohash.git@pillow10
-imagedominantcolor @ git+https://github.com/albertopasqualetto/imagedominantcolor.git@pillow10
+videohash @ git+https://github.com/notchum/videohash.git
+imagedominantcolor @ git+https://github.com/notchum/imagedominantcolor.git
