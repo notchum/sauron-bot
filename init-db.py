@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# fmt: off
+
 # Connect to the PostgreSQL database
 conn = psycopg2.connect(dsn=os.environ["DATABASE_URI"])
 cursor = conn.cursor()
