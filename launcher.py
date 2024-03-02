@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 from bot import SauronBot, Config
 
+
 async def main():
     # Load the environment variables
     load_dotenv()
@@ -37,7 +38,9 @@ async def main():
         encoding="utf-8",
         backupCount=5,  # Rotate through 5 files
     )
-    formatter = logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d - %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d - %(message)s"
+    )
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
@@ -48,7 +51,7 @@ async def main():
     # Create intents
     intents = disnake.Intents.default()
     intents.message_content = True
-    
+
     # Create bot
     bot = SauronBot(
         config=config,
@@ -58,5 +61,6 @@ async def main():
     )
     await bot.setup_hook()
     await bot.start(config.DISCORD_BOT_TOKEN)
+
 
 asyncio.run(main())

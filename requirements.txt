@@ -8,6 +8,7 @@ imagehash
 pytesseract
 numpy
 tqdm
+ruff
 autocorrect
 openai-whisper
 fuzzywuzzy

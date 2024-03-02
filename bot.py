@@ -12,7 +12,11 @@ from disnake import Activity, ActivityType
 from disnake.ext import commands
 
 from helpers import ImageProcessor, VideoProcessor
-from helpers.utilities import get_content_type, is_image_content_type, is_video_content_type
+from helpers.utilities import (
+    get_content_type,
+    is_image_content_type,
+    is_video_content_type,
+)
 
 VERSION = "1.0.0"
 
@@ -28,6 +32,7 @@ Config = namedtuple(
     ],
 )
 
+
 class SauronBot(commands.InteractionBot):
     def __init__(self, *args, **kwargs):
         self.config: Config = kwargs.pop("config", None)
@@ -35,22 +40,30 @@ class SauronBot(commands.InteractionBot):
         super().__init__(*args, **kwargs)
         self.activity = Activity(type=ActivityType.watching, name="you")
         self.monitored_channels = [788962609235886090, 759521817735725126]
-    
+
     async def setup_hook(self):
         # Load cogs
-        for extension in [filename[:-3] for filename in os.listdir("cogs") if filename.endswith(".py")]:
+        for extension in [
+            filename[:-3] for filename in os.listdir("cogs") if filename.endswith(".py")
+        ]:
             try:
                 self.load_extension(f"cogs.{extension}")
             except Exception as e:
                 exception = f"{type(e).__name__}: {e}"
-                self.logger.exception(f"Failed to load extension {extension}!\t{exception}")
+                self.logger.exception(
+                    f"Failed to load extension {extension}!\t{exception}"
+                )
 
         # Initialize temporary directory
-        self.temp_dir = tempfile.mkdtemp(suffix=f"-sauron-bot-{disnake.utils.utcnow().strftime('%Y%m%d-%H%M%S')}")
+        self.temp_dir = tempfile.mkdtemp(
+            suffix=f"-sauron-bot-{disnake.utils.utcnow().strftime('%Y%m%d-%H%M%S')}"
+        )
         self.logger.debug(f"Initialized temp directory {self.temp_dir}")
 
         # Initialize database connection pool
-        self.pool = await asyncpg.create_pool(dsn=self.config.DATABASE_URI, loop=self.loop, command_timeout=60)
+        self.pool = await asyncpg.create_pool(
+            dsn=self.config.DATABASE_URI, loop=self.loop, command_timeout=60
+        )
         if self.config.TEST_MODE:
             self.logger.warning("Running in test mode. Using test database.")
         else:
@@ -65,7 +78,9 @@ class SauronBot(commands.InteractionBot):
         self.logger.info(f"ID: {self.user.id}")
         self.logger.info(f"Python version: {platform.python_version()}")
         self.logger.info(f"Disnake API version: {disnake.__version__}")
-        self.logger.info(f"Running on: {platform.system()} {platform.release()} ({os.name})")
+        self.logger.info(
+            f"Running on: {platform.system()} {platform.release()} ({os.name})"
+        )
         self.logger.info("------")
 
     async def close(self):
@@ -84,7 +99,7 @@ class SauronBot(commands.InteractionBot):
                     shutil.rmtree(file_path)
             except Exception as e:
                 self.logger.error(f"Error deleting {file}: {e}")
-    
+
     async def execute_query(self, query, *args):
         async with self.pool.acquire() as connection:
             return await connection.fetch(query, *args)
@@ -94,12 +109,14 @@ class SauronBot(commands.InteractionBot):
         message: disnake.Message,
         attachment_index: int,
         update_existing: bool = False,
-        record_id: int = None
+        record_id: int = None,
     ) -> None | list[dict]:
         # Error checking
         if not update_existing and record_id:
-            raise ValueError("Cannot specify a Record Identifier without setting `update_existing` parameter.")
-        
+            raise ValueError(
+                "Cannot specify a Record Identifier without setting `update_existing` parameter."
+            )
+
         self.logger.info(f"[{attachment_index}] {message.jump_url}")
 
         # Get the attachment
@@ -116,18 +133,24 @@ class SauronBot(commands.InteractionBot):
                 AND filename = $4
             );
         """
-        exists = await self.execute_query(query, message.id, message.channel.id, message.guild.id, attachment.filename)
+        exists = await self.execute_query(
+            query, message.id, message.channel.id, message.guild.id, attachment.filename
+        )
         exists: bool = exists[0][0]
         if exists and not update_existing:
-            self.logger.info(f"└ Attachment {attachment.filename} already exists in the database.")
+            self.logger.info(
+                f"└ Attachment {attachment.filename} already exists in the database."
+            )
             return
 
         # Get the content type
         content_type = get_content_type(attachment)
         if content_type is None:
-            self.logger.error(f"└ Attachment {attachment.filename} has invalid content type {attachment.content_type}")
+            self.logger.error(
+                f"└ Attachment {attachment.filename} has invalid content type {attachment.content_type}"
+            )
             return
-        
+
         # Determine if the message was posted via a bot
         author_id = message.author.id
         posted_by_bot = False
@@ -143,7 +166,9 @@ class SauronBot(commands.InteractionBot):
             file_path = os.path.join(self.temp_dir, attachment.filename)
             await attachment.save(fp=file_path, use_cached=True)
         except Exception as e:
-            self.logger.exception(f"└ Failed to save attachment {attachment.filename}: {e}")
+            self.logger.exception(
+                f"└ Failed to save attachment {attachment.filename}: {e}"
+            )
             return
 
         # Process the image or video
@@ -160,13 +185,15 @@ class SauronBot(commands.InteractionBot):
             except Exception as e:
                 self.logger.exception(f"└ Failed to process video: {e}")
                 return
-            text_ocr = None # TODO: Implement OCR for video
+            text_ocr = None  # TODO: Implement OCR for video
             video_transcription = videoproc.transcribe()
             hash = videoproc.hash
         else:
-            self.logger.error(f"└ Attachment {attachment.filename} has invalid content type {attachment.content_type}")
+            self.logger.error(
+                f"└ Attachment {attachment.filename} has invalid content type {attachment.content_type}"
+            )
             return
-        
+
         # Update the record if specified
         if record_id and update_existing:
             query = """
@@ -174,8 +201,21 @@ class SauronBot(commands.InteractionBot):
                 SET hash = $1, text_ocr = $2, video_transcription = $3, content_type = $4, filename = $5, url = $6, timestamp = $7, attachment_index = $8
                 WHERE id = $8;
             """
-            await self.execute_query(query, hash, text_ocr, video_transcription, content_type, attachment.filename, attachment.url, message.created_at, attachment_index, record_id)
-            self.logger.info(f"└ Record {record_id}: Updated attachment {attachment.filename} in the database.")
+            await self.execute_query(
+                query,
+                hash,
+                text_ocr,
+                video_transcription,
+                content_type,
+                attachment.filename,
+                attachment.url,
+                message.created_at,
+                attachment_index,
+                record_id,
+            )
+            self.logger.info(
+                f"└ Record {record_id}: Updated attachment {attachment.filename} in the database."
+            )
             return
         elif exists and update_existing:
             query = """
@@ -185,10 +225,25 @@ class SauronBot(commands.InteractionBot):
                 AND channel_id = $10
                 AND guild_id = $11;
             """
-            await self.execute_query(query, hash, text_ocr, video_transcription, content_type, attachment.filename, attachment.url, message.created_at, attachment_index, message.id, message.channel.id, message.guild.id)
-            self.logger.info(f"└ Updated attachment {attachment.filename} in the database.")
+            await self.execute_query(
+                query,
+                hash,
+                text_ocr,
+                video_transcription,
+                content_type,
+                attachment.filename,
+                attachment.url,
+                message.created_at,
+                attachment_index,
+                message.id,
+                message.channel.id,
+                message.guild.id,
+            )
+            self.logger.info(
+                f"└ Updated attachment {attachment.filename} in the database."
+            )
             return
-        
+
         # Find exact matches in the database
         query = """
             SELECT *
@@ -197,7 +252,9 @@ class SauronBot(commands.InteractionBot):
             AND guild_id = $3;
         """
         max_hamming_distance = 0
-        matches = await self.execute_query(query, hash, max_hamming_distance, message.guild.id)
+        matches = await self.execute_query(
+            query, hash, max_hamming_distance, message.guild.id
+        )
         self.logger.info(f"├ Found {len(matches)} exact matches.")
         self.logger.debug(f"├ Exact matches: {[match['id'] for match in matches]}")
 
@@ -207,7 +264,23 @@ class SauronBot(commands.InteractionBot):
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING *;
         """
-        result = await self.execute_query(query, hash, text_ocr, video_transcription, content_type, attachment.filename, attachment_index, attachment.url, message.created_at, message.guild.id, message.channel.id, message.id, author_id, posted_by_bot, bot_id)
+        result = await self.execute_query(
+            query,
+            hash,
+            text_ocr,
+            video_transcription,
+            content_type,
+            attachment.filename,
+            attachment_index,
+            attachment.url,
+            message.created_at,
+            message.guild.id,
+            message.channel.id,
+            message.id,
+            author_id,
+            posted_by_bot,
+            bot_id,
+        )
         for record in result:
             self.logger.info(f"├ Inserted media {record['id']} into database.")
             self.logger.info(f"├ Hash: {hash}")
