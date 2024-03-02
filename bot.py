@@ -1,5 +1,4 @@
 import os
-import atexit
 import shutil
 import logging
 import tempfile
@@ -19,7 +18,7 @@ from helpers.utilities import (
     is_video_content_type,
 )
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 Config = namedtuple(
     "Config",
@@ -41,7 +40,6 @@ class SauronBot(commands.InteractionBot):
         super().__init__(*args, **kwargs)
         self.activity = Activity(type=ActivityType.watching, name="you")
         self.monitored_channels = [788962609235886090, 759521817735725126]
-        atexit.register(self.exit_handler)
 
     async def setup_hook(self):
         # Load cogs
@@ -57,9 +55,7 @@ class SauronBot(commands.InteractionBot):
                 )
 
         # Initialize temporary directory
-        self.temp_dir = tempfile.mkdtemp(
-            suffix=f"-sauron-bot-{disnake.utils.utcnow().strftime('%Y%m%d-%H%M%S')}"
-        )
+        self.create_temp_dir()
         self.logger.debug(f"Initialized temp directory {self.temp_dir}")
 
         # Initialize database connection pool
@@ -93,6 +89,11 @@ class SauronBot(commands.InteractionBot):
     async def close(self):
         await self.session.close()
         await super().close()
+
+    def create_temp_dir(self):
+        self.temp_dir = os.path.join(tempfile.gettempdir(), "tmp-sauron-bot")
+        if not os.path.exists(self.temp_dir):
+            os.mkdir(self.temp_dir)
 
     def clear_temp_dir(self):
         for file in os.listdir(self.temp_dir):
