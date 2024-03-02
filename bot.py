@@ -1,4 +1,5 @@
 import os
+import atexit
 import shutil
 import logging
 import tempfile
@@ -40,6 +41,7 @@ class SauronBot(commands.InteractionBot):
         super().__init__(*args, **kwargs)
         self.activity = Activity(type=ActivityType.watching, name="you")
         self.monitored_channels = [788962609235886090, 759521817735725126]
+        atexit.register(self.exit_handler)
 
     async def setup_hook(self):
         # Load cogs
@@ -83,9 +85,12 @@ class SauronBot(commands.InteractionBot):
         )
         self.logger.info("------")
 
-    async def close(self):
+    def exit_handler(self):
+        self.logger.info("Shutting down Sauron...")
         self.clear_temp_dir()
         os.rmdir(self.temp_dir)
+
+    async def close(self):
         await self.session.close()
         await super().close()
 
