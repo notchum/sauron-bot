@@ -259,6 +259,7 @@ class Commands(commands.Cog):
         self,
         inter: disnake.ApplicationCommandInteraction,
         message: disnake.Message,
+        attachment_index: commands.Range[int, 1, 10] = 1,
         max_hamming_distance: int = 0,
     ):
         """Search for an image or video based on a message attachment.
@@ -267,6 +268,9 @@ class Commands(commands.Cog):
         ----------
         message: `disnake.Message`
             The message with the attachment to search for.
+        attachment_index: `int`
+            The index of the attachment to search for when the message
+            contains multiple attachments.
         max_hamming_distance: `int`
             The maximum Hamming distance to use when searching.
         """
@@ -277,9 +281,7 @@ class Commands(commands.Cog):
                 f"No attachments found in {message.jump_url}."
             )
             return
-        attachment = message.attachments[
-            0
-        ]  # TODO: Add support for multiple attachments
+        attachment = message.attachments[attachment_index - 1]
 
         file_path = os.path.join(self.bot.temp_dir, attachment.filename)
         await attachment.save(fp=file_path, use_cached=True)
