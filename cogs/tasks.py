@@ -29,9 +29,7 @@ class Tasks(commands.Cog):
 
         for channel_id in self.bot.monitored_channels:
             channel = await self.bot.fetch_channel(channel_id)
-            logger.info(
-                f"Searching channel {channel.name}[{channel.id}] for media..."
-            )
+            logger.info(f"Searching channel {channel.name}[{channel.id}] for media...")
             async for message in channel.history(limit=20):
                 if not message.attachments:
                     continue

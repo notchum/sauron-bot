@@ -12,6 +12,7 @@ pytesseract.pytesseract.tesseract_cmd = os.environ["TESSERACT_CMD"]
 ##********          DISCORD UTILS           *******##
 ##*************************************************##
 
+
 def slash_command_mention(name: str, id: int) -> str:
     """A helper function to format a slash command as a Discord clickable mention.
 
@@ -42,9 +43,11 @@ def get_cog_names() -> List[str]:
     """
     return [ext_name for ext_name in disnake.utils.search_directory("cogs")]
 
+
 ##*************************************************##
 ##********          PROJECT UTILS           *******##
 ##*************************************************##
+
 
 def twos_complement(hexstr: str, bits: int):
     value = int(hexstr, 16)  # convert hexadecimal to integer

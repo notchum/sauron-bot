@@ -179,7 +179,9 @@ class Commands(commands.Cog):
             AND guild_id = $2
             ORDER BY ts_rank_cd(text_ocr_vector, plainto_tsquery('english', $1)) DESC;
         """
-        ocr_fts_matches = await self.bot.execute_query(query, f"%{text}%", inter.guild.id)
+        ocr_fts_matches = await self.bot.execute_query(
+            query, f"%{text}%", inter.guild.id
+        )
 
         # Find text matches in the database using trigram similarity
         query = """
@@ -201,7 +203,9 @@ class Commands(commands.Cog):
             AND guild_id = $2
             ORDER BY ts_rank_cd(video_transcription_vector, plainto_tsquery('english', $1)) DESC;
         """
-        transcript_fts_matches = await self.bot.execute_query(query, f"%{text}%", inter.guild.id)
+        transcript_fts_matches = await self.bot.execute_query(
+            query, f"%{text}%", inter.guild.id
+        )
 
         logger.debug(f"ocr_trigram_matches: {len(ocr_trigram_matches)}")
         logger.debug(f"ocr_fts_matches: {len(ocr_fts_matches)}")
@@ -430,7 +434,7 @@ class Commands(commands.Cog):
         update_existing: bool = False,
     ):
         """Execute a full scrub of all monitored channels.
-        
+
         Parameters
         ----------
         channel: `disnake.TextChannel`
@@ -450,7 +454,9 @@ class Commands(commands.Cog):
             await inter.edit_original_response("Channel is not monitored.")
             return
         if starting_message and not oldest_first:
-            await inter.edit_original_response("`starting_message` requires `oldest_first` to be `True`.")
+            await inter.edit_original_response(
+                "`starting_message` requires `oldest_first` to be `True`."
+            )
             return
         if starting_message and starting_message.channel != channel:
             await inter.edit_original_response(

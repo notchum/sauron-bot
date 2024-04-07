@@ -45,7 +45,7 @@ class SauronBot(commands.InteractionBot):
         # Initialize temporary directory
         self.create_temp_dir()
         logger.debug(f"Initialized temp directory {self.temp_dir}")
-        
+
         # Load cogs
         for extension in utils.get_cog_names():
             try:
@@ -102,7 +102,7 @@ class SauronBot(commands.InteractionBot):
                 logger.error(f"Error deleting {file}: {e}")
 
     async def create_settings_entry(self):
-        pass # TODO
+        pass  # TODO
 
     async def execute_query(self, query, *args):
         async with self.pool.acquire() as connection:
@@ -170,9 +170,7 @@ class SauronBot(commands.InteractionBot):
             file_path = os.path.join(self.temp_dir, attachment.filename)
             await attachment.save(fp=file_path, use_cached=True)
         except Exception as e:
-            logger.exception(
-                f"└ Failed to save attachment {attachment.filename}: {e}"
-            )
+            logger.exception(f"└ Failed to save attachment {attachment.filename}: {e}")
             return
 
         # Process the image or video
@@ -243,9 +241,7 @@ class SauronBot(commands.InteractionBot):
                 message.channel.id,
                 message.guild.id,
             )
-            logger.info(
-                f"└ Updated attachment {attachment.filename} in the database."
-            )
+            logger.info(f"└ Updated attachment {attachment.filename} in the database.")
             return
 
         # Find exact matches in the database
