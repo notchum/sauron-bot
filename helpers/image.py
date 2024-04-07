@@ -1,12 +1,8 @@
-import logging
-
 import pytesseract
 import imagehash
 from PIL import Image
 
 from helpers.utilities import twos_complement, text_post_processing
-
-logger = logging.getLogger("sauron-bot")
 
 
 class ImageProcessor:

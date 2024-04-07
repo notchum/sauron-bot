@@ -1,13 +1,50 @@
 import os
-import logging
+from typing import List
 
 import disnake
 import autocorrect
 import pytesseract
+from loguru import logger
 
 pytesseract.pytesseract.tesseract_cmd = os.environ["TESSERACT_CMD"]
-logger = logging.getLogger("sauron-bot")
 
+##*************************************************##
+##********          DISCORD UTILS           *******##
+##*************************************************##
+
+def slash_command_mention(name: str, id: int) -> str:
+    """A helper function to format a slash command as a Discord clickable mention.
+
+    Parameters
+    ----------
+    name: :class:`str`
+        The name of the command to mention.
+    id: :class:`int`
+        The ID of the command to mention.
+        Obtained by typing the slash command in Discord and right-clicking on the
+        pop-up box then 'Copy Command ID'.
+
+    Returns
+    -------
+    :class:`str`
+        The formatted string.
+    """
+    return f"</{name}:{id}>"
+
+
+def get_cog_names() -> List[str]:
+    """Get the names of every cog/extension that should be loaded.
+
+    Returns
+    -------
+    List[:class:`str`]
+        The cogs/extensions that should be loaded with `load_extension`.
+    """
+    return [ext_name for ext_name in disnake.utils.search_directory("cogs")]
+
+##*************************************************##
+##********          PROJECT UTILS           *******##
+##*************************************************##
 
 def twos_complement(hexstr: str, bits: int):
     value = int(hexstr, 16)  # convert hexadecimal to integer

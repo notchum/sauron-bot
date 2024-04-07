@@ -74,7 +74,7 @@ class Events(commands.Cog):
     #     deleted_records = await self.bot.execute_query(query, message.id, message.channel.id, message.guild.id)
     #     if len(deleted_records) > 0:
     #         for record in deleted_records:
-    #             self.bot.logger.info(f"Deleted Record {record['id']} from message {message.id}")
+    #             logger.info(f"Deleted Record {record['id']} from message {message.id}")
 
 
 def setup(bot: commands.Bot):

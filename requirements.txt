@@ -1,14 +1,15 @@
 disnake
+asyncpg
 aiofiles
 aiohttp
-asyncpg
 python-dotenv
+loguru
+ruff
 Pillow
 imagehash
 pytesseract
 numpy
 tqdm
-ruff
 autocorrect
 openai-whisper
 fuzzywuzzy

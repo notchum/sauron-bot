@@ -1,6 +1,5 @@
 import os
 import shutil
-import logging
 import tempfile
 import platform
 from collections import namedtuple
@@ -8,8 +7,8 @@ from collections import namedtuple
 import aiohttp
 import asyncpg
 import disnake
-from disnake import Activity, ActivityType
 from disnake.ext import commands
+from loguru import logger
 
 from helpers import ImageProcessor, VideoProcessor
 from helpers.utilities import (
@@ -17,8 +16,9 @@ from helpers.utilities import (
     is_image_content_type,
     is_video_content_type,
 )
+from helpers import utilities as utils
 
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 
 Config = namedtuple(
     "Config",
@@ -36,55 +36,50 @@ Config = namedtuple(
 class SauronBot(commands.InteractionBot):
     def __init__(self, *args, **kwargs):
         self.config: Config = kwargs.pop("config", None)
-        self.logger: logging.Logger = kwargs.pop("logger", None)
+        self.version = VERSION
         super().__init__(*args, **kwargs)
-        self.activity = Activity(type=ActivityType.watching, name="you")
+        self.activity = disnake.Activity(type=disnake.ActivityType.watching, name="you")
         self.monitored_channels = [788962609235886090, 759521817735725126]
 
     async def setup_hook(self):
-        # Load cogs
-        for extension in [
-            filename[:-3] for filename in os.listdir("cogs") if filename.endswith(".py")
-        ]:
-            try:
-                self.load_extension(f"cogs.{extension}")
-            except Exception as e:
-                exception = f"{type(e).__name__}: {e}"
-                self.logger.exception(
-                    f"Failed to load extension {extension}!\t{exception}"
-                )
-
         # Initialize temporary directory
         self.create_temp_dir()
-        self.logger.debug(f"Initialized temp directory {self.temp_dir}")
+        logger.debug(f"Initialized temp directory {self.temp_dir}")
+        
+        # Load cogs
+        for extension in utils.get_cog_names():
+            try:
+                self.load_extension(extension)
+                logger.debug(f"Loaded extension '{extension}'")
+            except Exception as e:
+                exception = f"{type(e).__name__}: {e}"
+                logger.exception(f"Failed to load extension {extension}!\t{exception}")
 
         # Initialize database connection pool
         self.pool = await asyncpg.create_pool(
             dsn=self.config.DATABASE_URI, loop=self.loop, command_timeout=60
         )
         if self.config.TEST_MODE:
-            self.logger.warning("Running in test mode. Using test database.")
+            logger.warning("Running in test mode. Using test database.")
         else:
-            self.logger.info("Connected to database.")
+            logger.success("Connected to database.")
+
+        # Create the global bot settings entry if it doesn't exist
+        await self.create_settings_entry()
 
         # Initialize aiohttp session
-        self.session = aiohttp.ClientSession()
+        self.session = aiohttp.ClientSession(loop=self.loop)
 
     async def on_ready(self):
-        self.logger.info("------")
-        self.logger.info(f"{self.user.name} v{VERSION}")
-        self.logger.info(f"ID: {self.user.id}")
-        self.logger.info(f"Python version: {platform.python_version()}")
-        self.logger.info(f"Disnake API version: {disnake.__version__}")
-        self.logger.info(
-            f"Running on: {platform.system()} {platform.release()} ({os.name})"
-        )
-        self.logger.info("------")
-
-    def exit_handler(self):
-        self.logger.info("Shutting down Sauron...")
-        self.clear_temp_dir()
-        os.rmdir(self.temp_dir)
+        # fmt: off
+        logger.info("------")
+        logger.info(f"{self.user.name} v{self.version}")
+        logger.info(f"ID: {self.user.id}")
+        logger.info(f"Python version: {platform.python_version()}")
+        logger.info(f"Disnake API version: {disnake.__version__}")
+        logger.info(f"Running on: {platform.system()} {platform.release()} ({os.name})")
+        logger.info("------")
+        # fmt: on
 
     async def close(self):
         await self.session.close()
@@ -104,7 +99,10 @@ class SauronBot(commands.InteractionBot):
                 elif os.path.isdir(file_path):
                     shutil.rmtree(file_path)
             except Exception as e:
-                self.logger.error(f"Error deleting {file}: {e}")
+                logger.error(f"Error deleting {file}: {e}")
+
+    async def create_settings_entry(self):
+        pass # TODO
 
     async def execute_query(self, query, *args):
         async with self.pool.acquire() as connection:
@@ -123,7 +121,7 @@ class SauronBot(commands.InteractionBot):
                 "Cannot specify a Record Identifier without setting `update_existing` parameter."
             )
 
-        self.logger.info(f"[{attachment_index}] {message.jump_url}")
+        logger.info(f"[{attachment_index}] {message.jump_url}")
 
         # Get the attachment
         attachment = message.attachments[attachment_index]
@@ -144,15 +142,15 @@ class SauronBot(commands.InteractionBot):
         )
         exists: bool = exists[0][0]
         if exists and not update_existing:
-            self.logger.info(
+            logger.info(
                 f"└ Attachment {attachment.filename} already exists in the database."
             )
             return
 
         # Get the content type
-        content_type = get_content_type(attachment)
+        content_type = utils.get_content_type(attachment)
         if content_type is None:
-            self.logger.error(
+            logger.error(
                 f"└ Attachment {attachment.filename} has invalid content type {attachment.content_type}"
             )
             return
@@ -172,30 +170,30 @@ class SauronBot(commands.InteractionBot):
             file_path = os.path.join(self.temp_dir, attachment.filename)
             await attachment.save(fp=file_path, use_cached=True)
         except Exception as e:
-            self.logger.exception(
+            logger.exception(
                 f"└ Failed to save attachment {attachment.filename}: {e}"
             )
             return
 
         # Process the image or video
-        if is_image_content_type(content_type):
-            self.logger.info(f"├ Processing image {attachment.filename}")
+        if utils.is_image_content_type(content_type):
+            logger.info(f"├ Processing image {attachment.filename}")
             imageproc = ImageProcessor(file_path)
             text_ocr = imageproc.ocr()
             video_transcription = None
             hash = imageproc.hash
-        elif is_video_content_type(content_type):
-            self.logger.info(f"├ Processing video {attachment.filename}")
+        elif utils.is_video_content_type(content_type):
+            logger.info(f"├ Processing video {attachment.filename}")
             try:
                 videoproc = VideoProcessor(file_path, self.temp_dir)
             except Exception as e:
-                self.logger.exception(f"└ Failed to process video: {e}")
+                logger.exception(f"└ Failed to process video: {e}")
                 return
             text_ocr = None  # TODO: Implement OCR for video
             video_transcription = videoproc.transcribe()
             hash = videoproc.hash
         else:
-            self.logger.error(
+            logger.error(
                 f"└ Attachment {attachment.filename} has invalid content type {attachment.content_type}"
             )
             return
@@ -219,7 +217,7 @@ class SauronBot(commands.InteractionBot):
                 attachment_index,
                 record_id,
             )
-            self.logger.info(
+            logger.info(
                 f"└ Record {record_id}: Updated attachment {attachment.filename} in the database."
             )
             return
@@ -245,7 +243,7 @@ class SauronBot(commands.InteractionBot):
                 message.channel.id,
                 message.guild.id,
             )
-            self.logger.info(
+            logger.info(
                 f"└ Updated attachment {attachment.filename} in the database."
             )
             return
@@ -261,8 +259,8 @@ class SauronBot(commands.InteractionBot):
         matches = await self.execute_query(
             query, hash, max_hamming_distance, message.guild.id
         )
-        self.logger.info(f"├ Found {len(matches)} exact matches.")
-        self.logger.debug(f"├ Exact matches: {[match['id'] for match in matches]}")
+        logger.info(f"├ Found {len(matches)} exact matches.")
+        logger.debug(f"├ Exact matches: {[match['id'] for match in matches]}")
 
         # Insert into the database
         query = """
@@ -288,9 +286,9 @@ class SauronBot(commands.InteractionBot):
             bot_id,
         )
         for record in result:
-            self.logger.info(f"├ Inserted media {record['id']} into database.")
-            self.logger.info(f"├ Hash: {hash}")
-            self.logger.info(f"├ OCR Text: {repr(text_ocr)}")
-            self.logger.info(f"└ Transcription: {repr(video_transcription)}")
+            logger.info(f"├ Inserted media {record['id']} into database.")
+            logger.info(f"├ Hash: {hash}")
+            logger.info(f"├ OCR Text: {repr(text_ocr)}")
+            logger.info(f"└ Transcription: {repr(video_transcription)}")
 
         return matches

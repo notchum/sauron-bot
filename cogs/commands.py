@@ -3,15 +3,12 @@ import os
 import aiofiles
 import disnake
 from disnake.ext import commands
+from loguru import logger
 
 from bot import SauronBot
-from views import Paginator
 from helpers import ImageProcessor, VideoProcessor
-from helpers.utilities import (
-    get_content_type,
-    is_image_content_type,
-    is_video_content_type,
-)
+from helpers import utilities as utils
+from views import Paginator
 
 
 class Commands(commands.Cog):
@@ -26,7 +23,7 @@ class Commands(commands.Cog):
             if not os.path.exists(media_path):
                 async with self.bot.session.get(url) as response:
                     if response.status != 200:
-                        self.bot.logger.error(
+                        logger.error(
                             f"Downloading media {url} returned status code `{response.status}`"
                         )
                         return None
@@ -34,24 +31,24 @@ class Commands(commands.Cog):
                         await f.write(await response.read())
             return media_path
         except Exception as err:
-            self.bot.logger.error(f"Downloading media returned invalid data! {err}")
+            logger.error(f"Downloading media returned invalid data! {err}")
             return None
 
     async def get_attachment_hash(self, attachment: disnake.Attachment) -> int:
         file_path = os.path.join(self.bot.temp_dir, attachment.filename)
         await attachment.save(fp=file_path, use_cached=True)
 
-        content_type = get_content_type(attachment)
+        content_type = utils.get_content_type(attachment)
         if content_type is None:
             raise ValueError(
                 f"Attachment {attachment.filename} has invalid content type {attachment.content_type}"
             )
 
         # Process the image or video
-        if is_image_content_type(content_type):
+        if utils.is_image_content_type(content_type):
             imageproc = ImageProcessor(file_path)
             hash = imageproc.hash
-        elif is_video_content_type(content_type):
+        elif utils.is_video_content_type(content_type):
             try:
                 videoproc = VideoProcessor(file_path, self.bot.temp_dir)
             except:
@@ -86,7 +83,17 @@ class Commands(commands.Cog):
         image_url: str = None,
     ):
         if not matches:
-            await inter.edit_original_response("No similar images or videos found.")
+            embed = disnake.Embed(
+                title="Search Results",
+                description="No similar images or videos found.",
+                color=disnake.Color.dark_orange(),
+            )
+            if image_url:
+                embed.set_thumbnail(url=image_url)
+            await inter.edit_original_response(
+                content=f"Found `{len(matches)}` results. {content}",
+                embed=embed,
+            )
             return
 
         matches.sort(key=lambda match: match["timestamp"])
@@ -99,9 +106,15 @@ class Commands(commands.Cog):
                 user_mention += f" via <@{match['bot_id']}>"
             time_sent = f"<t:{int(match['timestamp'].timestamp())}:F>"
             jump_url = f"https://discord.com/channels/{match['guild_id']}/{match['channel_id']}/{match['message_id']}"
+            if utils.is_image_content_type(match["content_type"]):
+                content_type_emoji = "🖼️"
+            elif utils.is_video_content_type(match["content_type"]):
+                content_type_emoji = "🎞️"
+            else:
+                content_type_emoji = "❓"
 
             message_urls.append(
-                f"{i}. {jump_url} ({time_sent})\n  - Author: {user_mention}\n  - ID: {match['id']}"
+                f"{i}. {jump_url} ({time_sent})\n  - Author: {user_mention}\n  - ID: {match['id']} | Type: {content_type_emoji}"
             )
             if i % 10 == 0:
                 embed = disnake.Embed(
@@ -136,7 +149,7 @@ class Commands(commands.Cog):
     async def search_text(
         self, inter: disnake.ApplicationCommandInteraction, text: str
     ):
-        """Search for an image based on text."""
+        """Search for media based on text in the content."""
         await inter.response.defer()
 
         # Find text matches in the database using trigram similarity
@@ -147,7 +160,7 @@ class Commands(commands.Cog):
             AND guild_id = $2
             ORDER BY text_ocr <-> $1;
         """
-        trigram_matches = await self.bot.execute_query(
+        ocr_trigram_matches = await self.bot.execute_query(
             query, f"%{text}%", inter.guild.id
         )
 
@@ -166,19 +179,53 @@ class Commands(commands.Cog):
             AND guild_id = $2
             ORDER BY ts_rank_cd(text_ocr_vector, plainto_tsquery('english', $1)) DESC;
         """
-        fts_matches = await self.bot.execute_query(query, f"%{text}%", inter.guild.id)
+        ocr_fts_matches = await self.bot.execute_query(query, f"%{text}%", inter.guild.id)
 
-        # Combine the two lists of matches
+        # Find text matches in the database using trigram similarity
+        query = """
+            SELECT *
+            FROM media_metadata
+            WHERE video_transcription % $1
+            AND guild_id = $2
+            ORDER BY video_transcription <-> $1;
+        """
+        transcript_trigram_matches = await self.bot.execute_query(
+            query, f"%{text}%", inter.guild.id
+        )
+
+        # Find text matches in the database using full text search
+        query = """
+            SELECT *
+            FROM media_metadata
+            WHERE video_transcription_vector @@ plainto_tsquery('english', $1)
+            AND guild_id = $2
+            ORDER BY ts_rank_cd(video_transcription_vector, plainto_tsquery('english', $1)) DESC;
+        """
+        transcript_fts_matches = await self.bot.execute_query(query, f"%{text}%", inter.guild.id)
+
+        logger.debug(f"ocr_trigram_matches: {len(ocr_trigram_matches)}")
+        logger.debug(f"ocr_fts_matches: {len(ocr_fts_matches)}")
+        logger.debug(f"transcript_trigram_matches: {len(transcript_trigram_matches)}")
+        logger.debug(f"transcript_fts_matches: {len(transcript_fts_matches)}")
+
+        # Combine the lists of matches
         matches = []
-        for match in trigram_matches:
+        for match in ocr_trigram_matches:
             if match not in matches:
                 matches.append(match)
-        for match in fts_matches:
+        for match in ocr_fts_matches:
             if match not in matches:
                 matches.append(match)
-        self.bot.logger.info(f"Found {len(matches)} similar images.")
+        for match in transcript_trigram_matches:
+            if match not in matches:
+                matches.append(match)
+        for match in transcript_fts_matches:
+            if match not in matches:
+                matches.append(match)
+        logger.info(f"Found {len(matches)} similar media for query: '{text}'.")
 
         await self.send_search_results(inter, matches, content=f"Query:\n> {text}")
+        return
 
     @commands.slash_command()
     async def search_attachment(
@@ -200,19 +247,15 @@ class Commands(commands.Cog):
 
         file_path = os.path.join(self.bot.temp_dir, attachment.filename)
         await attachment.save(fp=file_path, use_cached=True)
-        self.bot.logger.info(f"Saved attachment {attachment.filename} to {file_path}")
+        logger.info(f"Saved attachment {attachment.filename} to {file_path}")
 
         hash = await self.get_attachment_hash(attachment)
-        self.bot.logger.info(f"Hash: {hash}")
+        logger.info(f"Hash: {hash}")
 
         matches = await self.find_similar_images(
             hash, max_hamming_distance, inter.guild.id
         )
-        self.bot.logger.info(f"Found {len(matches)} similar images.")
-
-        if not matches:
-            await inter.edit_original_response("No similar images found.")
-            return
+        logger.info(f"Found {len(matches)} similar media.")
 
         await self.send_search_results(inter, matches, image_url=attachment.url)
         return
@@ -228,7 +271,7 @@ class Commands(commands.Cog):
 
         Parameters
         ----------
-        image_url: `str`
+        media_url: `str`
             The URL to the image or video to search for.
         max_hamming_distance: `int`
             The maximum Hamming distance to use when searching.
@@ -236,20 +279,20 @@ class Commands(commands.Cog):
         await inter.response.defer()
 
         file_path = await self.download_media(media_url)
-        self.bot.logger.info(f"Downloaded image {file_path}")
+        logger.info(f"Downloaded media {file_path}")
 
-        image_host_channel = await self.bot.fetch_channel(1164613880538992760)
-        image_host_msg = await image_host_channel.send(file=disnake.File(file_path))
-        attachment = image_host_msg.attachments[0]
-        self.bot.logger.info(f"Uploaded image {image_host_msg.attachments[0].url}")
+        media_host_channel = await self.bot.fetch_channel(1164613880538992760)
+        media_host_msg = await media_host_channel.send(file=disnake.File(file_path))
+        attachment = media_host_msg.attachments[0]
+        logger.info(f"Uploaded media {media_host_msg.attachments[0].url}")
 
         hash = await self.get_attachment_hash(attachment)
-        self.bot.logger.info(f"Hash: {hash}")
+        logger.info(f"Hash: {hash}")
 
         matches = await self.find_similar_images(
             hash, max_hamming_distance, inter.guild.id
         )
-        self.bot.logger.info(f"Found {len(matches)} similar images.")
+        logger.info(f"Found {len(matches)} similar media.")
 
         await self.send_search_results(inter, matches, image_url=attachment.url)
         return
@@ -285,17 +328,17 @@ class Commands(commands.Cog):
 
         file_path = os.path.join(self.bot.temp_dir, attachment.filename)
         await attachment.save(fp=file_path, use_cached=True)
-        self.bot.logger.info(
+        logger.info(
             f"Saved attachment {attachment.filename} from message {message.id} to {file_path}"
         )
 
         hash = await self.get_attachment_hash(attachment)
-        self.bot.logger.info(f"Hash: {hash}")
+        logger.info(f"Hash: {hash}")
 
         matches = await self.find_similar_images(
             hash, max_hamming_distance, inter.guild.id
         )
-        self.bot.logger.info(f"Found {len(matches)} similar images.")
+        logger.info(f"Found {len(matches)} similar media.")
 
         await self.send_search_results(inter, matches, image_url=attachment.url)
         return
@@ -306,7 +349,7 @@ class Commands(commands.Cog):
     async def view_info(
         self, inter: disnake.ApplicationCommandInteraction, message: disnake.Message
     ):
-        """View information about an image."""
+        """View database information about an message."""
         await inter.response.defer(ephemeral=True)
 
         query = """
@@ -320,7 +363,7 @@ class Commands(commands.Cog):
             query, message.id, message.channel.id, message.guild.id
         )
         if not result:
-            await inter.edit_original_response("No image found.")
+            await inter.edit_original_response("No database record(s) found.")
             return
 
         record = result[0]
@@ -329,7 +372,7 @@ class Commands(commands.Cog):
         jump_url = f"https://discord.com/channels/{record['guild_id']}/{record['channel_id']}/{record['message_id']}"
 
         embed = disnake.Embed(
-            title=f"Image Info",
+            title="Message DB Info",
             description=f"By {user_mention} on {time_sent} in {jump_url}",
             color=disnake.Color.dark_orange(),
         ).set_thumbnail(url=message.attachments[0].url)
@@ -381,18 +424,35 @@ class Commands(commands.Cog):
         self,
         inter: disnake.ApplicationCommandInteraction,
         channel: disnake.TextChannel,
+        starting_message: disnake.Message = None,
         limit: int = None,
         oldest_first: bool = True,
         update_existing: bool = False,
-        starting_message: disnake.Message = None,
     ):
-        """Execute a full scrub of all monitored channels."""
+        """Execute a full scrub of all monitored channels.
+        
+        Parameters
+        ----------
+        channel: `disnake.TextChannel`
+            A monitored channel.
+        starting_message: `disnake.Message`
+            Requires oldest_first to be True.
+        limit: `int`
+            Default: None.
+        oldest_first: `bool`
+            Default: True.
+        update_existing: `bool`
+            Default: False.
+        """
         await inter.response.defer()
 
         if channel.id not in self.bot.monitored_channels:
             await inter.edit_original_response("Channel is not monitored.")
             return
-        if starting_message.channel != channel:
+        if starting_message and not oldest_first:
+            await inter.edit_original_response("`starting_message` requires `oldest_first` to be `True`.")
+            return
+        if starting_message and starting_message.channel != channel:
             await inter.edit_original_response(
                 "Starting message is not within the selected channel."
             )

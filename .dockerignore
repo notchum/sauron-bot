@@ -1,6 +1,14 @@
-# Project-specific ignores
-log/
-.vscode/
+#Ignore logs directory
+logs/
+
+#Ignore the git and cache folders
+.git/
+.git
+.cache
+
+#Ingore all markdown and class files
+*.md
+**/*.class
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -9,6 +17,3 @@ __pycache__/
 
 # C extensions
 *.so
-
-# git
-.git/

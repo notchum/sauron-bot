@@ -1,6 +1,5 @@
 import os
 import re
-import logging
 import subprocess
 
 import cv2
@@ -8,12 +7,11 @@ import whisper
 import Levenshtein
 import pytesseract
 import numpy as np
+from loguru import logger
 from tqdm import tqdm
 from videohash import VideoHash, HashAlgorithm
 
 from helpers.utilities import twos_complement, text_post_processing
-
-logger = logging.getLogger("sauron-bot")
 
 
 class VideoProcessor:

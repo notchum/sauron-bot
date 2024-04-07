@@ -1,7 +1,7 @@
-FROM python:3.10.4
+FROM python:latest
 RUN apt-get -y update && apt-get -y install tesseract-ocr ffmpeg
-RUN mkdir -p /opt/sauron-bot
-WORKDIR /opt/sauron-bot
-COPY ./ /opt/sauron-bot
+RUN mkdir -p /app/sauron-bot
+WORKDIR /app/sauron-bot
+COPY ./ /app/sauron-bot
 RUN pip install --no-cache-dir -r requirements.txt
-ENTRYPOINT python /opt/sauron-bot/launcher.py
+ENTRYPOINT python /app/sauron-bot/launcher.py

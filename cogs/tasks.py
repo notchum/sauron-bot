@@ -1,6 +1,5 @@
-import os
-
 from disnake.ext import commands, tasks
+from loguru import logger
 
 from bot import SauronBot
 
@@ -16,21 +15,21 @@ class Tasks(commands.Cog):
         """Clears all files from the bot's temporary directory."""
         if self.clean_temp_dir.current_loop == 0:
             return
-        self.bot.logger.debug(
+        logger.debug(
             f"Cleaning temp directory... [loop #{self.clean_temp_dir.current_loop}]"
         )
-        self.bot.clean_temp_dir()
-        self.bot.logger.info("Finished clearing temp directory.")
+        self.bot.clear_temp_dir()
+        logger.info("Finished clearing temp directory.")
 
     @tasks.loop(hours=1.0)
     async def check_for_media(self):
-        self.bot.logger.debug(
+        logger.debug(
             f"Checking for absent media... [loop #{self.check_for_media.current_loop}]"
         )
 
         for channel_id in self.bot.monitored_channels:
             channel = await self.bot.fetch_channel(channel_id)
-            self.bot.logger.info(
+            logger.info(
                 f"Searching channel {channel.name}[{channel.id}] for media..."
             )
             async for message in channel.history(limit=20):
@@ -40,7 +39,7 @@ class Tasks(commands.Cog):
                 for attachment_index in range(len(message.attachments)):
                     await self.bot.insert_media_record(message, attachment_index)
 
-        self.bot.logger.info("Finished checking for absent media.")
+        logger.info("Finished checking for absent media.")
 
     @clean_temp_dir.before_loop
     @check_for_media.before_loop

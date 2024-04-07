@@ -1,9 +1,8 @@
 import os
 import asyncio
-import logging
-import logging.handlers
 
 import disnake
+from loguru import logger
 from dotenv import load_dotenv
 
 from bot import SauronBot, Config
@@ -23,30 +22,14 @@ async def main():
         TESSERACT_CMD=os.environ["TESSERACT_CMD"],
     )
 
-    # Create logger
+    # Create logging file
+    logger.add(
+        "logs/sauron-bot.log",
+        level="DEBUG" if config.DEBUG else "INFO",
+        rotation="12:00",
+    )
     if config.DISNAKE_LOGGING:
-        logger = logging.getLogger("disnake")
-    else:
-        logger = logging.getLogger("sauron-bot")
-    logger.setLevel(logging.DEBUG if config.DEBUG else logging.INFO)
-
-    if not os.path.exists("log"):
-        os.makedirs("log")
-    handler = logging.handlers.TimedRotatingFileHandler(
-        filename="log/sauron-bot.log",
-        when="midnight",
-        encoding="utf-8",
-        backupCount=5,  # Rotate through 5 files
-    )
-    formatter = logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d - %(message)s"
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-
-    handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+        pass  # TODO
 
     # Create intents
     intents = disnake.Intents.default()
@@ -55,8 +38,7 @@ async def main():
     # Create bot
     bot = SauronBot(
         config=config,
-        logger=logger,
-        test_guilds=[776929597567795247, 759514108625682473],
+        test_guilds=[759514108625682473, 776929597567795247],
         intents=intents,
     )
     await bot.setup_hook()
