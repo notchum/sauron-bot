@@ -11,11 +11,6 @@ from disnake.ext import commands
 from loguru import logger
 
 from helpers import ImageProcessor, VideoProcessor
-from helpers.utilities import (
-    get_content_type,
-    is_image_content_type,
-    is_video_content_type,
-)
 from helpers import utilities as utils
 
 VERSION = "1.1.0"

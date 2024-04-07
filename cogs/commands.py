@@ -51,8 +51,8 @@ class Commands(commands.Cog):
         elif utils.is_video_content_type(content_type):
             try:
                 videoproc = VideoProcessor(file_path, self.bot.temp_dir)
-            except:
-                raise ValueError(f"Failed to process video {attachment.filename}")
+            except Exception as e:
+                raise ValueError(f"Failed to process video {attachment.filename}: {e}")
             hash = videoproc.hash
         else:
             raise ValueError(
