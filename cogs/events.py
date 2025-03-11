@@ -7,8 +7,8 @@ from bot import SauronBot
 
 
 class Events(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot: SauronBot = bot
+    def __init__(self, bot: SauronBot):
+        self.bot = bot
 
     @commands.Cog.listener()
     async def on_message(self, message: disnake.Message):
@@ -65,7 +65,7 @@ class Events(commands.Cog):
 
     #     # Delete the record from the database
     #     query = """
-    #         DELETE FROM media_metadata
+    #         DELETE FROM media_fingerprints
     #         WHERE message_id = $1
     #         AND channel_id = $2
     #         AND guild_id = $3
