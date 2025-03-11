@@ -171,21 +171,24 @@ class SauronBot(commands.InteractionBot):
         # Process the image or video
         if utils.is_image_content_type(content_type):
             logger.info(f"├ Processing image {attachment.filename}")
-            imageproc = ImageProcessor(file_path)
-            text_ocr = imageproc.ocr()
-            video_transcription = None
-            hash = imageproc.hash
+            try:
+                imageproc = ImageProcessor(file_path)
+                text_ocr = imageproc.ocr()
+                video_transcription = None
+                hash = imageproc.hash
+            except Exception as e:
+                logger.exception(f"└ Failed to process video: {e}")
+                return
         elif utils.is_video_content_type(content_type):
             logger.info(f"├ Processing video {attachment.filename}")
             try:
                 videoproc = VideoProcessor(file_path, self.temp_dir)
-                raise Exception("TODO FIX VIDEOS")
+                text_ocr = None  # TODO: Implement OCR for video
+                video_transcription = videoproc.transcribe()
+                hash = videoproc.hash
             except Exception as e:
                 logger.exception(f"└ Failed to process video: {e}")
                 return
-            text_ocr = None  # TODO: Implement OCR for video
-            video_transcription = videoproc.transcribe()
-            hash = videoproc.hash
         else:
             logger.error(
                 f"└ Attachment {attachment.filename} has invalid content type {attachment.content_type}"
