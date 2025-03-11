@@ -1,7 +1,9 @@
 # sauron-bot
-A Discord bot that can detect duplicate images posted in a given channel.
+A reverse image search Discord bot. This bot will monitor any given channel(s) for images/videos sent by users and hash/OCR them for reverse searching later.
 
-## Docker Compose
+The meat of this application is the custom database. The steps to manually set up this PostgreSQL database are outlined in [@KDJDEV's tutorial](https://github.com/KDJDEV/imagehash-reverse-image-search-tutorial). I have a custom Docker image pre-made with PostgreSQL 16 [here](https://hub.docker.com/repository/docker/notchum/postgres-spgist-bktree) that is used for this bot.
+
+## Setup (Docker Compose)
 Docker Compose is the recommended method to run sauron-bot in production. Below are the steps to deploy sauron-bot with Docker Compose.
 
 ### Step 1 - Download the required files
@@ -25,18 +27,15 @@ wget -O .env https://raw.githubusercontent.com/notchum/sauron-bot/main/.env.temp
 > [!NOTE]
 > Notice how the `wget` command above renames `.env.template` to `.env`.
 
-Download the database initialization script `install_bktree.sh` to a new directory and make it executable:
+Download the database initialization script(s) in [`init-scripts/`](https://github.com/notchum/sauron-bot/tree/main/init-scripts) to a new directory. This directory must be separate from the Postgres data directory. Here we are putting it in the `/srv/sauron-bot` directory that we used above:
 ```sh
-mkdir init-scripts
-cd init-scripts
-wget -O install_bktree.sh https://raw.githubusercontent.com/notchum/sauron-bot/main/install_bktree.sh
-chmod +x install_bktree.sh
-cd ..
+git clone https://raw.githubusercontent.com/notchum/sauron-bot /tmp/sauron-bot
+mv /tmp/sauron-bot/init-scripts /srv/sauron-bot/postgres-data-init-scripts
 ```
 
 ### Step 2 - Populate the .env file with custom values
 - `DISCORD_BOT_TOKEN` - Your Discord bot token.
-- `DATABASE_URI` - The URI of the database, in this format: `postgres://postgress:YOUR_POSTGRES_PASSWORD@HOSTNAME:PORT/postgres`.
+- `DATABASE_URI` - The URI of the database, in this format: `postgres://postgres:YOUR_POSTGRES_PASSWORD@HOSTNAME:PORT/postgres`.
 - `TESSERACT_CMD` - The path to the Tesseract executable within the Docker container. This is usually `/usr/bin/tesseract`.
 - `POSTGRES_PASSWORD` - The password initialized for the Postgres database. Postgres is not publically exposed, so this password is only used for local authentication. To avoid issues with Docker parsing this value, it is best to use only the characters `A-Za-z0-9`.
 

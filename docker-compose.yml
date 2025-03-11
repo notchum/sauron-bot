@@ -21,7 +21,7 @@ services:
   #                     POSTGRESQL
   # ====================================================
   postgresql:
-    image: postgres:16
+    image: notchum/postgres-spgist-bktree:16
     container_name: sauron-postgres
     ports:
       - 5432:5432
@@ -45,5 +45,5 @@ services:
       start_interval: 1s
     volumes:
       - ./postgres-data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d/
+      - ./postgres-data-init-scripts:/docker-entrypoint-initdb.d/
     restart: unless-stopped
