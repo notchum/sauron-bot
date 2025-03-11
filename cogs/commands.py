@@ -12,8 +12,8 @@ from views import Paginator
 
 
 class Commands(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot: SauronBot = bot
+    def __init__(self, bot: SauronBot):
+        self.bot = bot
 
     async def download_media(self, url: str) -> str | None:
         try:
@@ -66,7 +66,7 @@ class Commands(commands.Cog):
     ) -> list[dict[str, str]]:
         query = """
             SELECT *
-            FROM media_metadata
+            FROM media_fingerprints
             WHERE hash <@ ($1, $2)
             AND guild_id = $3;
         """
@@ -155,7 +155,7 @@ class Commands(commands.Cog):
         # Find text matches in the database using trigram similarity
         query = """
             SELECT *
-            FROM media_metadata
+            FROM media_fingerprints
             WHERE text_ocr % $1
             AND guild_id = $2
             ORDER BY text_ocr <-> $1;
@@ -167,14 +167,14 @@ class Commands(commands.Cog):
         # Find text matches in the database using full text search
         # query = """
         #     SELECT *
-        #     FROM media_metadata
+        #     FROM media_fingerprints
         #     WHERE text_ocr_vector @@ to_tsquery('english', $1)
         #     AND guild_id = $2
         #     ORDER BY ts_rank_cd(text_ocr_vector, to_tsquery('english', $1)) DESC;
         # """
         query = """
             SELECT *
-            FROM media_metadata
+            FROM media_fingerprints
             WHERE text_ocr_vector @@ plainto_tsquery('english', $1)
             AND guild_id = $2
             ORDER BY ts_rank_cd(text_ocr_vector, plainto_tsquery('english', $1)) DESC;
@@ -186,7 +186,7 @@ class Commands(commands.Cog):
         # Find text matches in the database using trigram similarity
         query = """
             SELECT *
-            FROM media_metadata
+            FROM media_fingerprints
             WHERE video_transcription % $1
             AND guild_id = $2
             ORDER BY video_transcription <-> $1;
@@ -198,7 +198,7 @@ class Commands(commands.Cog):
         # Find text matches in the database using full text search
         query = """
             SELECT *
-            FROM media_metadata
+            FROM media_fingerprints
             WHERE video_transcription_vector @@ plainto_tsquery('english', $1)
             AND guild_id = $2
             ORDER BY ts_rank_cd(video_transcription_vector, plainto_tsquery('english', $1)) DESC;
@@ -358,7 +358,7 @@ class Commands(commands.Cog):
 
         query = """
             SELECT *
-            FROM media_metadata
+            FROM media_fingerprints
             WHERE message_id = $1
             AND channel_id = $2
             AND guild_id = $3;
@@ -398,7 +398,7 @@ class Commands(commands.Cog):
         await inter.response.defer(ephemeral=True)
 
         query = """
-            DELETE FROM media_metadata
+            DELETE FROM media_fingerprints
             WHERE message_id = $1
             AND channel_id = $2
             AND guild_id = $3;

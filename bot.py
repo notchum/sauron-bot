@@ -125,7 +125,7 @@ class SauronBot(commands.InteractionBot):
         query = """
             SELECT EXISTS (
                 SELECT 1
-                FROM media_metadata
+                FROM media_fingerprints
                 WHERE message_id = $1
                 AND channel_id = $2
                 AND guild_id = $3
@@ -179,6 +179,7 @@ class SauronBot(commands.InteractionBot):
             logger.info(f"├ Processing video {attachment.filename}")
             try:
                 videoproc = VideoProcessor(file_path, self.temp_dir)
+                raise Exception("TODO FIX VIDEOS")
             except Exception as e:
                 logger.exception(f"└ Failed to process video: {e}")
                 return
@@ -194,7 +195,7 @@ class SauronBot(commands.InteractionBot):
         # Update the record if specified
         if record_id and update_existing:
             query = """
-                UPDATE media_metadata
+                UPDATE media_fingerprints
                 SET hash = $1, text_ocr = $2, video_transcription = $3, content_type = $4, filename = $5, url = $6, timestamp = $7, attachment_index = $8
                 WHERE id = $8;
             """
@@ -216,7 +217,7 @@ class SauronBot(commands.InteractionBot):
             return
         elif exists and update_existing:
             query = """
-                UPDATE media_metadata
+                UPDATE media_fingerprints
                 SET hash = $1, text_ocr = $2, video_transcription = $3, content_type = $4, filename = $5, url = $6, timestamp = $7, attachment_index = $8
                 WHERE message_id = $9
                 AND channel_id = $10
@@ -242,7 +243,7 @@ class SauronBot(commands.InteractionBot):
         # Find exact matches in the database
         query = """
             SELECT *
-            FROM media_metadata
+            FROM media_fingerprints
             WHERE hash <@ ($1, $2)
             AND guild_id = $3;
         """
@@ -255,7 +256,7 @@ class SauronBot(commands.InteractionBot):
 
         # Insert into the database
         query = """
-            INSERT INTO media_metadata (hash, text_ocr, video_transcription, content_type, filename, attachment_index, url, timestamp, guild_id, channel_id, message_id, author_id, by_bot, bot_id)
+            INSERT INTO media_fingerprints (hash, text_ocr, video_transcription, content_type, filename, attachment_index, url, timestamp, guild_id, channel_id, message_id, author_id, by_bot, bot_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING *;
         """
