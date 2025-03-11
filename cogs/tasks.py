@@ -5,8 +5,8 @@ from bot import SauronBot
 
 
 class Tasks(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot: SauronBot = bot
+    def __init__(self, bot: SauronBot):
+        self.bot = bot
         self.clean_temp_dir.start()
         self.check_for_media.start()
 
@@ -27,10 +27,19 @@ class Tasks(commands.Cog):
             f"Checking for absent media... [loop #{self.check_for_media.current_loop}]"
         )
 
+        query = """
+            SELECT MAX(timestamp) AS latest_timestamp
+            FROM media_fingerprints;
+        """
+        result = await self.bot.execute_query(query)
+        if not result:
+            return
+        latest_timestamp = result[0]['latest_timestamp']
+
         for channel_id in self.bot.monitored_channels:
             channel = await self.bot.fetch_channel(channel_id)
             logger.info(f"Searching channel {channel.name}[{channel.id}] for media...")
-            async for message in channel.history(limit=20):
+            async for message in channel.history(limit=None, after=latest_timestamp):
                 if not message.attachments:
                     continue
 
