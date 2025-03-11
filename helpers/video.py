@@ -1,5 +1,6 @@
 import os
 import re
+import shlex
 import subprocess
 
 import cv2
@@ -96,6 +97,12 @@ class VideoProcessor:
         # Check if distance exceeds the threshold
         return distance > threshold
 
+    def __get_duration_secs(self) -> int:
+        fps = self.video.get(cv2.CAP_PROP_FPS)
+        frame_count = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
+        duration = frame_count / fps
+        return duration
+
     def ocr(self) -> str:
         full_text = ""
         frame_count = 0
@@ -160,12 +167,15 @@ class VideoProcessor:
         return full_text
 
     def transcribe(self) -> str:
+        if self.__get_duration_secs() > 600: # 10 minutes maximum
+            return ""
+        
         audio_path = os.path.join(
             self.storage_path,
             "".join(i for i in self.path.split("\\")[-1].split(".")[0:-1]) + ".wav",
         )
         cmd = f"ffmpeg -y -i {self.path} -ab 160k -ac 2 -ar 44100 -vn {audio_path}"
-        process = subprocess.Popen(cmd, stderr=subprocess.PIPE, universal_newlines=True)
+        process = subprocess.Popen(shlex.split(cmd), stderr=subprocess.PIPE, text=True)
 
         progress_bar = None
         for line in process.stderr:
