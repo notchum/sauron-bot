@@ -11,8 +11,6 @@ pytesseract
 numpy
 tqdm
 autocorrect
-openai-whisper
-fuzzywuzzy
 levenshtein
 opencv-contrib-python-headless
 videohash @ git+https://github.com/notchum/videohash.git
