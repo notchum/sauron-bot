@@ -1,0 +1,4 @@
+-- This file is used to import existing records to media_fingerprints
+
+-- An example query (should be replaced with real queries):
+INSERT INTO "media_fingerprints" ("id", "hash", "text_ocr", "timestamp", "guild_id", "channel_id", "message_id", "author_id", "text_ocr_vector", "video_transcription", "video_transcription_vector", "content_type", "filename", "url", "attachment_index", "by_bot", "bot_id") VALUES (1, '-471333280373272488', '', '2020-12-16 19:56:18.219-07', '75951410625682473', '78892609235886090', '78896275177988905', '31420846855798784', '', NULL, NULL, 'image/png', 'ce648f540182e7839a4d20fec34af3e.png', 'https://cdn.discordapp.com/attachments/788962609235886090/788962751548358696/ce648f54018a2e7839a4d20fec34af3e.png?ex=65f26752&is=65dff252&hm=1f098130ec5dfa5eb912c8a72d8de16b4fac7bbdd4bf8a9a82c4a7647023aaf&', 0, false, NULL);
