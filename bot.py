@@ -14,7 +14,7 @@ from gradio_client import Client
 import utils
 from helpers import ImageProcessor, VideoProcessor
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 Config = namedtuple(
     "Config",
