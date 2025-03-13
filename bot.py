@@ -69,7 +69,7 @@ class SauronBot(commands.InteractionBot):
         self.session = aiohttp.ClientSession(loop=self.loop)
 
         # Create a Gradio client for Florence-2 OCR
-        self.florence_client = Client("gokaygokay/Florence-2")
+        self.florence_client = Client("gokaygokay/Florence-2", verbose=False)
 
     async def on_ready(self):
         # fmt: off
