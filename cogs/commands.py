@@ -5,9 +5,9 @@ import disnake
 from disnake.ext import commands
 from loguru import logger
 
+import utils
 from bot import SauronBot
 from helpers import ImageProcessor, VideoProcessor
-from helpers import utilities as utils
 from views import Paginator
 
 

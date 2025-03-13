@@ -11,8 +11,8 @@ from disnake.ext import commands
 from loguru import logger
 from gradio_client import Client
 
+import utils
 from helpers import ImageProcessor, VideoProcessor
-from helpers import utilities as utils
 
 VERSION = "1.2.0"
 

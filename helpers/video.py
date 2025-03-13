@@ -12,7 +12,7 @@ from loguru import logger
 from tqdm import tqdm
 from videohash import VideoHash, HashAlgorithm
 
-from helpers.utilities import twos_complement, text_post_processing
+import utils
 
 
 class VideoProcessor:
@@ -28,7 +28,7 @@ class VideoProcessor:
         vhash = VideoHash(
             path=filename, storage_path=storage_path, hash_algorithm=HashAlgorithm.PHASH
         )
-        self.hash = twos_complement(vhash.hash_hex, 64)
+        self.hash = utils.twos_complement(vhash.hash_hex, 64)
 
     def __del__(self) -> None:
         self.video.release()
@@ -145,7 +145,7 @@ class VideoProcessor:
                 continue
 
             # process the text
-            text = text_post_processing(text)
+            text = utils.text_post_processing(text)
             frames_text.append(text)
             logger.debug(f"\tProcessed OCR text: {text}")
 

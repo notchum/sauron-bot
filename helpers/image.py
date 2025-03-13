@@ -3,14 +3,14 @@ import imagehash
 from gradio_client import handle_file
 from PIL import Image
 
-from helpers.utilities import twos_complement, text_post_processing
+import utils
 
 
 class ImageProcessor:
     def __init__(self, filename: str) -> None:
         self.path = filename
         self.image = Image.open(filename)
-        self.hash = twos_complement(str(imagehash.phash(self.image)), 64)
+        self.hash = utils.twos_complement(str(imagehash.phash(self.image)), 64)
 
     def __del__(self) -> None:
         pass
@@ -33,7 +33,7 @@ class ImageProcessor:
                 text = pytesseract.image_to_string(self.image)
         else:
             text = pytesseract.image_to_string(self.image)
-        # text = text_post_processing(text)
+        # text = utils.text_post_processing(text)
         return text
 
     def check_hash_similarity(
