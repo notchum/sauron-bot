@@ -9,6 +9,7 @@ Pillow
 imagehash
 pytesseract
 openai-whisper
+gradio_client
 numpy
 tqdm
 autocorrect

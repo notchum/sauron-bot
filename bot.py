@@ -9,11 +9,12 @@ import asyncpg
 import disnake
 from disnake.ext import commands
 from loguru import logger
+from gradio_client import Client
 
 from helpers import ImageProcessor, VideoProcessor
 from helpers import utilities as utils
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 Config = namedtuple(
     "Config",
@@ -24,6 +25,7 @@ Config = namedtuple(
         "DISCORD_BOT_TOKEN",
         "DATABASE_URI",
         "TESSERACT_CMD",
+        "PREFER_FLORENCE_2",
     ],
 )
 
@@ -64,6 +66,9 @@ class SauronBot(commands.InteractionBot):
 
         # Initialize aiohttp session
         self.session = aiohttp.ClientSession(loop=self.loop)
+
+        # Create a Gradio client for Florence-2 OCR
+        self.florence_client = Client("gokaygokay/Florence-2")
 
     async def on_ready(self):
         # fmt: off
@@ -173,7 +178,7 @@ class SauronBot(commands.InteractionBot):
             logger.info(f"├ Processing image {attachment.filename}")
             try:
                 imageproc = ImageProcessor(file_path)
-                text_ocr = imageproc.ocr()
+                text_ocr = imageproc.ocr(self.config.PREFER_FLORENCE_2)
                 video_transcription = None
                 hash = imageproc.hash
             except Exception as e:

@@ -20,6 +20,7 @@ async def main():
         DISCORD_BOT_TOKEN=os.environ["DISCORD_BOT_TOKEN"],
         DATABASE_URI=os.environ["DATABASE_URI"],
         TESSERACT_CMD=os.environ["TESSERACT_CMD"],
+        PREFER_FLORENCE_2=os.environ["PREFER_FLORENCE_2"] in ("1", "True", "true"),
     )
 
     # Create logging file
@@ -40,6 +41,7 @@ async def main():
         config=config,
         test_guilds=[759514108625682473, 776929597567795247],
         intents=intents,
+        reload=config.DEBUG,
     )
     await bot.setup_hook()
     await bot.start(config.DISCORD_BOT_TOKEN)
