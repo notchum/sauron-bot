@@ -450,7 +450,7 @@ class Commands(commands.Cog):
         """
         await inter.response.defer()
 
-        if channel.id not in self.bot.monitored_channels:
+        if channel.id not in self.bot.config.MONITORED_CHANNELS:
             await inter.edit_original_response("Channel is not monitored.")
             return
         if starting_message and not oldest_first:

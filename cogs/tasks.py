@@ -36,7 +36,7 @@ class Tasks(commands.Cog):
             return
         latest_timestamp = result[0]['latest_timestamp']
 
-        for channel_id in self.bot.monitored_channels:
+        for channel_id in self.bot.config.MONITORED_CHANNELS:
             channel = await self.bot.fetch_channel(channel_id)
             logger.info(f"Searching channel {channel.name}[{channel.id}] for media...")
             async for message in channel.history(limit=None, after=latest_timestamp):

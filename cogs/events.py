@@ -13,7 +13,7 @@ class Events(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: disnake.Message):
         """Called when a Message is created and sent."""
-        if message.channel.id not in self.bot.monitored_channels:
+        if message.channel.id not in self.bot.config.MONITORED_CHANNELS:
             return
         if not message.attachments:
             return
@@ -58,7 +58,7 @@ class Events(commands.Cog):
     # @commands.Cog.listener()
     # async def on_message_delete(self, message: disnake.Message):
     #     """ Called when a Message is deleted. """
-    #     if message.channel.id not in self.bot.monitored_channels:
+    #     if message.channel.id not in self.bot.config.MONITORED_CHANNELS:
     #         return
     #     if not message.attachments:
     #         return

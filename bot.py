@@ -23,6 +23,8 @@ Config = namedtuple(
         "DISNAKE_LOGGING",
         "TEST_MODE",
         "DISCORD_BOT_TOKEN",
+        "DISCORD_BOT_TEST_GUILDS",
+        "MONITORED_CHANNELS",
         "DATABASE_URI",
         "TESSERACT_CMD",
         "PREFER_FLORENCE_2",
@@ -36,7 +38,6 @@ class SauronBot(commands.InteractionBot):
         self.version = VERSION
         super().__init__(*args, **kwargs)
         self.activity = disnake.Activity(type=disnake.ActivityType.watching, name="you")
-        self.monitored_channels = [788962609235886090, 759521817735725126]
 
     async def setup_hook(self):
         # Initialize temporary directory
