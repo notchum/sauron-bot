@@ -23,7 +23,7 @@ Config = namedtuple(
         "DISNAKE_LOGGING",
         "TEST_MODE",
         "DISCORD_BOT_TOKEN",
-        "DISCORD_BOT_TEST_GUILDS",
+        "TEST_GUILDS",
         "MONITORED_CHANNELS",
         "DATABASE_URI",
         "TESSERACT_CMD",

@@ -18,8 +18,8 @@ async def main():
         DISNAKE_LOGGING=os.environ["DISNAKE_LOGGING"] in ("1", "True", "true"),
         TEST_MODE=os.environ["TEST_MODE"] in ("1", "True", "true"),
         DISCORD_BOT_TOKEN=os.environ["DISCORD_BOT_TOKEN"],
-        DISCORD_BOT_TEST_GUILDS=map(int, os.environ["DISCORD_BOT_TEST_GUILDS"].split(',')),
-        MONITORED_CHANNELS=map(int, os.environ["MONITORED_CHANNELS"].split(',')),
+        TEST_GUILDS=map(int, os.environ["TEST_GUILDS"].split(",")),
+        MONITORED_CHANNELS=map(int, os.environ["MONITORED_CHANNELS"].split(",")),
         DATABASE_URI=os.environ["DATABASE_URI"],
         TESSERACT_CMD=os.environ["TESSERACT_CMD"],
         PREFER_FLORENCE_2=os.environ["PREFER_FLORENCE_2"] in ("1", "True", "true"),
@@ -41,7 +41,7 @@ async def main():
     # Create bot
     bot = SauronBot(
         config=config,
-        test_guilds=config.DISCORD_BOT_TEST_GUILDS,
+        test_guilds=config.TEST_GUILDS,
         intents=intents,
         reload=config.DEBUG,
     )

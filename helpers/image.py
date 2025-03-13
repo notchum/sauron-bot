@@ -23,9 +23,9 @@ class ImageProcessor:
                     task_prompt="OCR",
                     text_input=None,
                     model_id="microsoft/Florence-2-large",
-                    api_name="/process_image"
+                    api_name="/process_image",
                 )
-                
+
                 # Strip {'<OCR>': ' from the front and '} from the back
                 text = result[0][11:-2]
             except Exception as e:

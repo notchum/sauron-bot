@@ -34,7 +34,7 @@ class Tasks(commands.Cog):
         result = await self.bot.execute_query(query)
         if not result:
             return
-        latest_timestamp = result[0]['latest_timestamp']
+        latest_timestamp = result[0]["latest_timestamp"]
 
         for channel_id in self.bot.config.MONITORED_CHANNELS:
             channel = await self.bot.fetch_channel(channel_id)

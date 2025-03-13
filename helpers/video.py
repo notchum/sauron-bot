@@ -167,9 +167,9 @@ class VideoProcessor:
         return full_text
 
     def transcribe(self) -> str:
-        if self.__get_duration_secs() > 600: # 10 minutes maximum
+        if self.__get_duration_secs() > 600:  # 10 minutes maximum
             return ""
-        
+
         audio_path = os.path.join(
             self.storage_path,
             "".join(i for i in self.path.split("\\")[-1].split(".")[0:-1]) + ".wav",
