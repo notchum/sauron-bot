@@ -14,7 +14,7 @@ from gradio_client import Client
 import utils
 from helpers import ImageProcessor, VideoProcessor
 
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 
 Config = namedtuple(
     "Config",
@@ -69,7 +69,7 @@ class SauronBot(commands.InteractionBot):
         self.session = aiohttp.ClientSession(loop=self.loop)
 
         # Create a Gradio client for Florence-2 OCR
-        self.florence_client = Client("gokaygokay/Florence-2", verbose=False)
+        self.florence_client = Client("gokaygokay/Florence-2", verbose=False) if self.config.PREFER_FLORENCE_2 else None
 
     async def on_ready(self):
         # fmt: off
