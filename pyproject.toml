@@ -1,0 +1,28 @@
+[project]
+name = "sauron-bot"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = "==3.12.*"
+dependencies = [
+    "aiofiles",
+    "aiohttp",
+    "asyncpg",
+    "autocorrect",
+    "disnake",
+    "gradio-client>=2.7.0",
+    "imagedominantcolor",
+    "imagehash",
+    "levenshtein",
+    "loguru",
+    "opencv-contrib-python-headless",
+    "pillow",
+    "python-dotenv",
+    "tqdm",
+    "videohash",
+]
+optional-dependencies.dev = [ "ruff" ]
+
+[tool.uv.sources]
+videohash = { git = "https://github.com/notchum/videohash.git" }
+imagedominantcolor = { git = "https://github.com/notchum/imagedominantcolor.git" }

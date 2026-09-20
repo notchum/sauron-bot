@@ -21,8 +21,6 @@ async def main():
         TEST_GUILDS=list(map(int, os.environ["TEST_GUILDS"].split(","))),
         MONITORED_CHANNELS=list(map(int, os.environ["MONITORED_CHANNELS"].split(","))),
         DATABASE_URI=os.environ["DATABASE_URI"],
-        TESSERACT_CMD=os.environ["TESSERACT_CMD"],
-        PREFER_FLORENCE_2=os.environ["PREFER_FLORENCE_2"] in ("1", "True", "true"),
     )
 
     # Create logging file

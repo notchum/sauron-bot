@@ -46,11 +46,11 @@ class Commands(commands.Cog):
 
         # Process the image or video
         if utils.is_image_content_type(content_type):
-            imageproc = ImageProcessor(file_path)
+            imageproc = ImageProcessor(file_path, self.bot.ocr_client)
             hash = imageproc.hash
         elif utils.is_video_content_type(content_type):
             try:
-                videoproc = VideoProcessor(file_path, self.bot.temp_dir)
+                videoproc = VideoProcessor(file_path, self.bot.temp_dir, self.bot.ocr_client, self.bot.transcribe_client)
             except Exception as e:
                 raise ValueError(f"Failed to process video {attachment.filename}: {e}")
             hash = videoproc.hash

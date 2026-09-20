@@ -36,7 +36,6 @@ mv /tmp/sauron-bot/init-scripts /srv/sauron-bot/postgres-data-init-scripts
 ### Step 2 - Populate the .env file with custom values
 - `DISCORD_BOT_TOKEN` - Your Discord bot token.
 - `DATABASE_URI` - The URI of the database, in this format: `postgres://postgres:YOUR_POSTGRES_PASSWORD@HOSTNAME:PORT/postgres`.
-- `TESSERACT_CMD` - The path to the Tesseract executable within the Docker container. This is usually `/usr/bin/tesseract`.
 - `POSTGRES_PASSWORD` - The password initialized for the Postgres database. Postgres is not publically exposed, so this password is only used for local authentication. To avoid issues with Docker parsing this value, it is best to use only the characters `A-Za-z0-9`.
 
 ### Step 3 - Start the containers

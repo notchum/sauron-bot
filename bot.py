@@ -26,8 +26,6 @@ Config = namedtuple(
         "TEST_GUILDS",
         "MONITORED_CHANNELS",
         "DATABASE_URI",
-        "TESSERACT_CMD",
-        "PREFER_FLORENCE_2",
     ],
 )
 
@@ -68,8 +66,15 @@ class SauronBot(commands.InteractionBot):
         # Initialize aiohttp session
         self.session = aiohttp.ClientSession(loop=self.loop)
 
-        # Create a Gradio client for Florence-2 OCR
-        self.florence_client = Client("gokaygokay/Florence-2", verbose=False) if self.config.PREFER_FLORENCE_2 else None
+        # Create a Gradio client for image OCR
+        # self.ocr_client = Client(
+        #     "https://pragnakalp-ocr-image-to-text.hf.space/--replicas/9htqm/"
+        # )
+        self.ocr_client = Client("kneelesh48/Tesseract-OCR")
+
+        # Create a Gradio client for audio transcription
+        # self.transcribe_client = Client("openai/whisper")
+        self.transcribe_client = Client("BalashovIlya/whisper-transcriber")
 
     async def on_ready(self):
         # fmt: off
@@ -178,17 +183,19 @@ class SauronBot(commands.InteractionBot):
         if utils.is_image_content_type(content_type):
             logger.info(f"├ Processing image {attachment.filename}")
             try:
-                imageproc = ImageProcessor(file_path)
-                text_ocr = imageproc.ocr(self.config.PREFER_FLORENCE_2)
+                imageproc = ImageProcessor(file_path, self.ocr_client)
+                text_ocr =  None if content_type.endswith("gif") else imageproc.ocr()
                 video_transcription = None
                 hash = imageproc.hash
             except Exception as e:
-                logger.exception(f"└ Failed to process video: {e}")
+                logger.exception(f"└ Failed to process image: {e}")
                 return
         elif utils.is_video_content_type(content_type):
             logger.info(f"├ Processing video {attachment.filename}")
             try:
-                videoproc = VideoProcessor(file_path, self.temp_dir)
+                videoproc = VideoProcessor(
+                    file_path, self.temp_dir, self.ocr_client, self.transcribe_client
+                )
                 text_ocr = None  # TODO: Implement OCR for video
                 video_transcription = videoproc.transcribe()
                 hash = videoproc.hash

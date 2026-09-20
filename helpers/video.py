@@ -4,10 +4,9 @@ import shlex
 import subprocess
 
 import cv2
-import whisper
 import Levenshtein
-import pytesseract
 import numpy as np
+from gradio_client import Client, handle_file
 from loguru import logger
 from tqdm import tqdm
 from videohash import VideoHash, HashAlgorithm
@@ -16,9 +15,17 @@ import utils
 
 
 class VideoProcessor:
-    def __init__(self, filename: str, storage_path: str) -> None:
+    def __init__(
+        self,
+        filename: str,
+        storage_path: str,
+        ocr_client: Client,
+        transcribe_client: Client,
+    ) -> None:
         self.path = filename
         self.storage_path = storage_path
+        self.ocr_client = ocr_client
+        self.transcribe_client = transcribe_client
         self.video = cv2.VideoCapture(filename)
 
         if not self.video.isOpened():
@@ -137,7 +144,12 @@ class VideoProcessor:
                 continue
 
             # swap channel ordering and OCR it
-            text = pytesseract.image_to_string(frame)
+            # text = self.ocr_client.predict(
+            #     "PaddleOCR",  # Literal[PaddleOCR, EasyOCR, KerasOCR]
+            #     handle_file(frame),
+            #     api_name="/predict",
+            # )
+            text = ""
             logger.debug(f"\tRaw OCR text: {text}")
 
             # skip the frame if the text is empty
@@ -197,11 +209,12 @@ class VideoProcessor:
                 progress_bar.refresh()
 
         if os.path.exists(audio_path):
-            model: whisper.Whisper = whisper.load_model("base")
-            result = model.transcribe(audio_path)
+            text = self.transcribe_client.predict(
+                audio_file=handle_file(audio_path), api_name="/predict"
+            )
         else:
-            result = {"text": ""}
-        return result["text"]
+            text = ""
+        return text
 
     def check_hash_similarity(
         self, hash1: VideoHash, hash2: VideoHash, threshold: int = 10

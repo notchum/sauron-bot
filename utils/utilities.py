@@ -1,12 +1,9 @@
-import os
 from typing import List
 
 import disnake
 import autocorrect
-import pytesseract
 from loguru import logger
 
-pytesseract.pytesseract.tesseract_cmd = os.environ["TESSERACT_CMD"]
 
 ##*************************************************##
 ##********          DISCORD UTILS           *******##
@@ -73,7 +70,7 @@ def text_post_processing(text: str) -> str:
     return text
 
 
-def get_content_type(attachment: disnake.Attachment) -> str:
+def get_content_type(attachment: disnake.Attachment) -> str | None:
     if attachment.content_type is None:
         if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif")):
             return f"image/{attachment.filename.split('.')[-1]}"
