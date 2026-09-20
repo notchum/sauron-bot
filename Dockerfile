@@ -1,5 +1,5 @@
 # Use a Python image with uv pre-installed
-FROM ghcr.io/astral-sh/uv:python3.12-alpine
+FROM ghcr.io/astral-sh/uv:python3.12-trixie-slim
 
 # Install packages for our application
 RUN apk add git ffmpeg libffi-dev python3-dev
