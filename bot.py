@@ -67,13 +67,9 @@ class SauronBot(commands.InteractionBot):
         self.session = aiohttp.ClientSession(loop=self.loop)
 
         # Create a Gradio client for image OCR
-        # self.ocr_client = Client(
-        #     "https://pragnakalp-ocr-image-to-text.hf.space/--replicas/9htqm/"
-        # )
         self.ocr_client = Client("kneelesh48/Tesseract-OCR")
 
         # Create a Gradio client for audio transcription
-        # self.transcribe_client = Client("openai/whisper")
         self.transcribe_client = Client("BalashovIlya/whisper-transcriber")
 
     async def on_ready(self):
